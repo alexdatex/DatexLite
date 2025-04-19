@@ -1,4 +1,6 @@
 from sqlalchemy.orm import Session
+
+from ..models import EquipmentSchema
 from ..models.equipment import Equipment
 
 class ComponentService:
@@ -21,3 +23,7 @@ class ComponentService:
         db.commit()
         db.refresh(db_component)
         return db_component
+
+    @staticmethod
+    def get_schemas(db: Session, equipment_id: int):
+        return db.query(EquipmentSchema).filter(EquipmentSchema.equipment_id == equipment_id).all()
