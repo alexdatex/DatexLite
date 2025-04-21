@@ -15,30 +15,31 @@ class ComponentInfoTab:
         self.frame_info.pack(fill="both", expand=True)
 
         fields = [
-            ("Название:", "name"),
-            ("Код оборудования:", "code"),
+            ("Технологический номер:", "code"),
+            ("Наименовние оборудования:", "name"),
             ("Назначение:", "purpose"),
             ("Производитель:", "manufacturer"),
             ("Тип:", "type"),
             ("Серийный номер:", "serial_number"),
-            ("Дата изготовления (ГГГГ-ММ-ДД):", "production_date"),
-            ("Место размещения:", "location")
+            ("Дата изготовления (год):", "production_date"),
+            ("Группа:", "group_name")
         ]
 
         self.entries = {}
         self.text_entries = {}
+
         for i, (text, name) in enumerate(fields):
-            tk.Label(self.frame_info, text=text).grid(row=i, column=0, sticky="e", pady=5)
+            ttk.Label(self.frame_info, text=text).grid(row=i, column=0, sticky="e", pady=5)
             entry_text = tk.StringVar()
             entry = tk.Entry(self.frame_info, width=30, textvariable=entry_text)
-            entry.config(state="readonly")
             entry.grid(row=i, column=1, pady=5)
+            entry.config(state="readonly")
             self.entries[name] = entry
             self.text_entries[name] = entry_text
 
         button_frame = tk.Frame(self.frame, padx=10, pady=5)
         button_frame.pack(fill="both", expand=True)
-        self.edit_btn = tk.Button(button_frame, text="Редактировать оборудование", command=self.open_edit_dialog,
+        self.edit_btn = ttk.Button(button_frame, text="Редактировать оборудование", command=self.open_edit_dialog,
                                   state=DISABLED)
         self.edit_btn.pack(side="left", padx=5)
 
@@ -55,18 +56,13 @@ class ComponentInfoTab:
         self.text_entries["manufacturer"].set(equipment.manufacturer)
         self.text_entries["type"].set(equipment.type)
         self.text_entries["serial_number"].set(equipment.serial_number)
-        self.text_entries["production_date"].set(equipment.production_date.strftime("%Y-%m-%d"))
-        self.text_entries["location"].set(equipment.location)
+        self.text_entries["production_date"].set(equipment.production_date)
+        self.text_entries["group_name"].set(equipment.group_name)
         self.edit_btn.config(state=tk.NORMAL)
 
     def clean(self):
         self.current_component_id = -1
-        self.text_entries["name"].set("")
-        self.text_entries["code"].set("")
-        self.text_entries["purpose"].set("")
-        self.text_entries["manufacturer"].set("")
-        self.text_entries["type"].set("")
-        self.text_entries["serial_number"].set("")
-        self.text_entries["production_date"].set("")
-        self.text_entries["location"].set("")
+        for name, entry in self.text_entries.items():
+            entry.set("")
+
         self.edit_btn.config(state=tk.DISABLED)

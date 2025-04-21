@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Date, LargeBinary
+from sqlalchemy import Column, Integer, String, LargeBinary, Boolean
+
 from ..database import Base
 
 
@@ -7,5 +8,8 @@ class EquipmentSchema(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
     description = Column(String)
-    data = Column(LargeBinary)
+    data_image = Column(LargeBinary)
+    data_original = Column(LargeBinary)
     equipment_id = Column(Integer, nullable=True, index=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    is_deleted = Column(Boolean, nullable=False, index=True, default=0)

@@ -1,10 +1,12 @@
 import io
 import os
 import tkinter as tk
-from tkinter import ttk, filedialog, DISABLED, messagebox, simpledialog
+from tkinter import ttk, filedialog, DISABLED, messagebox, simpledialog, NORMAL
+
 from PIL import Image, ImageTk
+from duckdb.duckdb import DELETE
+
 from db.models import EquipmentSchema
-from tabs.tab_base import TabBase
 from views.dialog_marks_scheme import SchemeDialog
 
 
@@ -20,7 +22,8 @@ class SchemaInfoTab:
         self.frame = tk.Frame(parent, padx=10, pady=10)
         self.frame.pack(fill="both", expand=True)
 
-        self.paned_window = tk.PanedWindow(self.frame, orient=tk.VERTICAL)
+        self.paned_window = tk.PanedWindow(self.frame, orient=tk.VERTICAL, sashrelief=tk.RAISED,
+                                           sashwidth=5)
         self.paned_window.pack(fill=tk.BOTH, expand=True)
 
         self.create_top_panel()
@@ -45,8 +48,8 @@ class SchemaInfoTab:
         """Вызывается при деактивации вкладки"""
 
     def create_top_panel(self):
-        self.top_panel = ttk.Frame(self.paned_window, height=600)
-        self.paned_window.add(self.top_panel, min=200)
+        self.top_panel = ttk.Frame(self.paned_window, height=400)
+        self.paned_window.add(self.top_panel, min=400)
 
         self.frame_info = tk.Frame(self.top_panel, padx=10, pady=10)
         self.frame_info.pack(fill="both", expand=True)
@@ -68,19 +71,21 @@ class SchemaInfoTab:
         self.photo_tree.heading("description", text="Описание", anchor=tk.W)
         self.photo_tree.column("id", width=0, stretch=tk.NO, minwidth=0)
         self.photo_tree.column("name", width=100, stretch=tk.YES, minwidth=200)
-        self.photo_tree.column("description", width=450, stretch=tk.YES, minwidth=200)
+        self.photo_tree.column("description", width=450, stretch=tk.YES, minwidth=300)
 
         self.photo_tree.bind("<<TreeviewSelect>>", self.on_schema_select)
 
         button_frame = tk.Frame(self.top_panel, padx=10, pady=5)
         button_frame.pack(fill="both", expand=True)
-        self.add_btn = tk.Button(button_frame, text="Добавить схему", command=self.open_add_scheme)
+        self.add_btn = ttk.Button(button_frame, text="Добавить схему", command=self.open_add_scheme, state=DISABLED)
         self.add_btn.pack(side="left", padx=5)
-        self.edit_btn = tk.Button(button_frame, text="Редактировать схему", command=self.open_edit_dialog,
-                                  state=DISABLED)
-        self.edit_btn.pack(side="left", padx=5)
-        self.delete_btn = tk.Button(button_frame, text="Удалить схему", command=self.open_edit_dialog, state=DISABLED)
+        self.delete_btn = ttk.Button(button_frame, text="Удалить схему", command=self.delete_schema, state=DISABLED)
         self.delete_btn.pack(side="left", padx=5)
+
+        button_frame = tk.Frame(self.top_panel, padx=10, pady=5)
+        button_frame.pack(fill="both", expand=True)
+        self.show_marks_btn = ttk.Button(button_frame, text="Редактировать метки на схеме", command=self.open_edit_marks_dialog, state=DISABLED)
+        self.show_marks_btn.pack(side="left", padx=5)
 
     def open_add_scheme(self):
         file_path = filedialog.askopenfilename(
@@ -97,27 +102,51 @@ class SchemaInfoTab:
                     name = os.path.basename(file_path)
                     description = simpledialog.askstring("Описание схемы", "Введите описание схемы:")
 
-                    schema = EquipmentSchema(
-                        name=name,
-                        data=file_data,
-                        description=description,
-                        equipment_id=self.current_component_id
-                    )
+                    if file_path.lower().endswith('.pdf'):
+                        import fitz
+                        doc = fitz.open(stream=file_data, filetype="pdf")
+                        total_pages = len(doc)
+                        page = doc[0]
+                        pix = page.get_pixmap()
+                        image_data = pix.tobytes("png")
+                    else:
+                        image_data = file_data
+
+                    schema = EquipmentSchema(name=name,
+                                             data_original=file_data,
+                                             data_image=image_data,
+                                             description=description,
+                                             equipment_id=self.current_component_id, user_id=self.root.user_id,
+                                             is_deleted=False)
 
                     self.db_service.add_schema(schema)
                     self.update_list_schemas()
 
             except Exception as e:
-                messagebox.showerror("Ошибка", f"Ошибка добавление файла: {e}")
+                messagebox.showerror("Ошибка", f"Ошибка добавление файла: {e}", parent=self)
 
     def open_edit_dialog(self):
-        """# dddd"""
+        pass
+
+    def delete_schema(self):
+        answer = messagebox.askyesno(
+            "Подтверждение удаления",
+            "Вы точно хотите удалить эту схему?",
+            icon='warning'
+        )
+        if answer:
+            self.db_service.delete_schema(self.current_schema_id)
+            self.current_schema_id = -1
+            self.delete_btn.config(state=DISABLED)
+            self.show_marks_btn.config(state=DISABLED)
+            self.clear_image_display()
+            self.update_list_schemas()
 
     def open_edit_marks_dialog(self):
-        SchemeDialog(self.tk_root, self, self.db_service, self.current_schema_id)
+        SchemeDialog(self.tk_root, self, self.db_service, self.root, self.root.user_id, self.current_schema_id)
 
     def create_bottom_panel(self):
-        self.bottom_panel = ttk.Frame(self.paned_window, height=500)
+        self.bottom_panel = ttk.Frame(self.paned_window)
         self.paned_window.add(self.bottom_panel, min=200)
 
         self.frame_info = tk.Frame(self.bottom_panel, padx=10, pady=10)
@@ -126,14 +155,14 @@ class SchemaInfoTab:
         self.image_canvas = tk.Canvas(self.frame_info, bg='white')
         self.image_canvas.pack(fill=tk.BOTH, expand=True)
 
-        button_frame = tk.Frame(self.bottom_panel, padx=10, pady=5)
-        button_frame.pack(fill="both", expand=True)
-        self.edit_btn = tk.Button(button_frame, text="Метки", command=self.open_edit_marks_dialog)
-        self.edit_btn.pack(side="left", padx=5)
-
 
     def update(self, component_id):
+        if component_id:
+            self.add_btn.configure(state=NORMAL)
+
+        self.show_marks_btn.configure(state=DISABLED)
         self.current_component_id = component_id
+        self.clear_image_display()
         self.update_list_schemas()
 
     def update_list_schemas(self):
@@ -153,9 +182,16 @@ class SchemaInfoTab:
     def on_schema_select(self, event):
         selected_item = self.photo_tree.selection()
         if selected_item:
+            self.add_btn.configure(state=NORMAL)
+            self.show_marks_btn.configure(state=NORMAL)
+            self.delete_btn.configure(state=NORMAL)
             item = self.photo_tree.item(selected_item)
             schema_id = item['values'][0]
             self.update_schema_info(schema_id)
+
+        else:
+            self.delete_btn.configure(state=DISABLED)
+
 
     def clear_image_display(self):
         self.image_canvas.delete("all")
@@ -197,4 +233,15 @@ class SchemaInfoTab:
         if self.current_schema_id != -1:
             schema = self.db_service.get_schema(self.current_schema_id)
             if self.is_active:
-                self.display_image(schema.data)
+                self.display_image(schema.data_image)
+
+    def clean(self):
+        for item in self.photo_tree.get_children():
+            self.photo_tree.delete(item)
+
+        self.add_btn.configure(state=DISABLED)
+        self.delete_btn.configure(state=DISABLED)
+        self.show_marks_btn.configure(state=DISABLED)
+
+        self.current_schema_id = -1
+        self.clear_image_display()

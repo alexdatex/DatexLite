@@ -10,4 +10,4 @@ class MarkImageService:
 
     @staticmethod
     def get_mark_images(db: Session, mark_id: int):
-        return db.query(MarkImage).filter(MarkImage.mark_id == mark_id).all()
+        return db.query(MarkImage).filter(MarkImage.mark_id == mark_id,MarkImage.is_deleted == False).all()
