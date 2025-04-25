@@ -1,35 +1,44 @@
-from tkinter import Toplevel, Label, Entry, Button, Frame, messagebox, DISABLED, filedialog
-from datetime import datetime
-from tkinter import Toplevel, Label, Entry, Button, Frame
-import tkinter as tk
-from tkinter import ttk
 import io
 import os
+import tkinter as tk
+from tkinter import Toplevel, Label, Entry, Frame, NORMAL
+from tkinter import messagebox, DISABLED, filedialog
+from tkinter import ttk
+
 from PIL import Image, ImageTk
 
 from db.models.mark import Mark
 from db.models.mark_image import MarkImage
+from views.multiline_text_dialog import MultilineInputDialog
 
 
 class MarkDialog(Toplevel):
-    def __init__(self, parent, parent2, root, controller, schema_id, mark_id=None):
+    def __init__(self, parent, parent2, root, controller, main_root, user_id, schema_id, mark_id=None, point_mark=None):
         super().__init__(parent)
         self.parent2 = parent2
         self.root = root
         self.controller = controller
+        self.main_root = main_root
         self.mark_id = mark_id
         self.schema_id = schema_id
+        self.user_id = user_id
         self.setup_ui()
-        self.point_mark = (0,0)
+        self.selected_mark_image_id = None
+
+        if (point_mark == None and mark_id != None):
+            mark = self.controller.get_mark(mark_id)
+            self.point_mark = (mark.x, mark.y)
+        else:
+            self.point_mark = point_mark
 
         if mark_id:
             parent.after(100, self.fill_form)
-            #self.fill_form()
 
     def setup_ui(self):
         self.title("Редактировать метку" if self.mark_id else "Добавить метку")
-        self.geometry("800x600")
+        self.geometry("800x650")
         self.resizable(False, False)
+        self.iconphoto(False, self.main_root.photo)
         self.grab_set()
 
         form_frame = Frame(self, padx=10, pady=10)
@@ -39,15 +48,25 @@ class MarkDialog(Toplevel):
         form_frame_info.pack(fill="both", expand=True)
 
         self.entries = {}
+        self.text_entries = {}
+
         Label(form_frame_info, text="Название").grid(row=1, column=0, sticky="e", pady=5)
-        entry = Entry(form_frame_info, width=30)
+        entry_text = tk.StringVar()
+        entry = Entry(form_frame_info, width=30, textvariable=entry_text)
         entry.grid(row=1, column=1, pady=5)
         self.entries["name"] = entry
+        self.text_entries["name"] = entry_text
 
-        Label(form_frame_info, text="Описание").grid(row=2, column=0, sticky="e", pady=5)
-        entry = Entry(form_frame_info, width=30)
+        Label(form_frame_info, text="Артикул оборудования").grid(row=2, column=0, sticky="e", pady=5)
+        entry_text = tk.StringVar()
+        entry = Entry(form_frame_info, width=30, textvariable=entry_text)
         entry.grid(row=2, column=1, pady=5)
         self.entries["description"] = entry
+        self.text_entries["description"] = entry_text
+
+        self.spare_parts_var = tk.BooleanVar(value=False)
+        important_check = ttk.Checkbutton(form_frame_info, text="Зап. часть", variable=self.spare_parts_var)
+        important_check.grid(row=3, column=1, columnspan=2, padx=5, pady=5, sticky=tk.W)
 
         self.paned_window = tk.PanedWindow(form_frame, orient=tk.HORIZONTAL)
         self.paned_window.pack(fill=tk.BOTH, expand=True)
@@ -58,29 +77,48 @@ class MarkDialog(Toplevel):
         button_frame = Frame(form_frame)
         button_frame.pack(pady=10)
 
-        self.tmpMarks = []
+        self.list_id_mark_images_for_delete = []
+        self.tmpMarks = {}
+        self.tmp_image_id = 0
 
-        Button(button_frame, text="Сохранить", command=self.save).pack(side="left", padx=5)
-        Button(button_frame, text="Отмена", command=self.destroy).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Сохранить", command=self.save).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Отмена", command=self.destroy).pack(side="left", padx=5)
 
     def save(self):
-        x,y = self.point_mark
-        mark = Mark(
-            name=self.entries["name"].get(),
-            description=self.entries["description"].get(),
-            schema_id=self.schema_id,
-            x=x,
-            y=y
-        )
-        self.controller.add_mark(mark)
+        if self.mark_id:
+            mark_data = {
+                'name': self.entries["name"].get(),
+                'description': self.entries["description"].get(),
+                'spare_parts': self.spare_parts_var.get()
+            }
+            self.controller.update_mark(self.mark_id, mark_data)
+            self.parent2.update_mark_information()
+        else:
+            x, y = self.point_mark
+            mark = Mark(
+                name=self.entries["name"].get(),
+                description=self.entries["description"].get(),
+                schema_id=self.schema_id,
+                x=x,
+                y=y,
+                spare_parts=self.spare_parts_var.get(),
+                user_id=self.parent2.user_id
+            )
+            self.controller.add_mark(mark)
+            self.parent2.add_mark(mark.id)
 
-        for item in self.tmpMarks:
-            item.mark_id = mark.id
+
+        for key, item in self.tmpMarks.items():
+            if self.mark_id:
+                item.mark_id = self.mark_id
+            else:
+                item.mark_id = mark.id
             self.controller.add_mark_image(item)
 
-        self.parent2.add_mark(mark.id)
-        self.destroy()
+        for mark_image_id in self.list_id_mark_images_for_delete:
+            self.controller.delete_mark_image(mark_image_id)
 
+        self.destroy()
 
     def create_left_panel(self):
         self.left_panel = ttk.Frame(self.paned_window, width=150)
@@ -99,29 +137,45 @@ class MarkDialog(Toplevel):
         # Настройка колонок
         self.marks_list.heading("id", text="ID", anchor=tk.W)
         self.marks_list.heading("name", text="Название", anchor=tk.W)
-        self.marks_list.heading("description", text="Описание", anchor=tk.W)
+        self.marks_list.heading("description", text="Комментарий", anchor=tk.W)
+
         self.marks_list.column("id", width=0, stretch=tk.NO, minwidth=0)
         self.marks_list.column("name", width=50, stretch=tk.YES, minwidth=50)
         self.marks_list.column("description", width=100, stretch=tk.YES, minwidth=100)
 
-        self.marks_list.bind("<<TreeviewSelect>>", self.on_schema_select)
+        self.marks_list.bind("<<TreeviewSelect>>", self.on_mark_image_select)
 
         button_frame = Frame(self.left_panel)
         button_frame.pack(pady=10)
 
-        Button(button_frame, text="Добавить", command=self.add_image).pack(side="left", padx=5)
-        Button(button_frame, text="Удалить", command=self.destroy, state=DISABLED).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Добавить", command=self.add_image).pack(side="left", padx=5)
+        self.delete_mark_image_btn = ttk.Button(button_frame, text="Удалить", command=self.delete_image, state=DISABLED)
+        self.delete_mark_image_btn.pack(side="left", padx=5)
 
     def create_right_panel(self):
         self.right_panel = ttk.Frame(self.paned_window, width=500)
         self.paned_window.add(self.right_panel, minsize=500)
 
-        self.image_canvas = tk.Canvas(self.right_panel, bg='white')
+        top_panel = ttk.Frame(self.right_panel, width=500)
+        top_panel.pack(fill="both", expand=True)
+
+        self.image_canvas = tk.Canvas(top_panel, bg='white')
         self.image_canvas.pack(fill=tk.BOTH, expand=True)
+
+        button_frame = Frame(self.right_panel)
+        button_frame.pack(fill="both", expand=True)
+
+        Label(button_frame, text="Комментарий").grid(row=0, column=0, sticky="e", pady=5)
+        self.image_comment_text = tk.Text(button_frame, height=6, width=60, wrap=tk.WORD)
+        self.image_comment_text.grid(row=0, column=5, columnspan=4, sticky=tk.EW)
 
     def fill_form(self):
         mark = self.controller.get_mark(self.mark_id)
         mark_images = self.controller.get_mark_images(self.mark_id)
+
+        self.text_entries["name"].set(mark.name)
+        self.text_entries["description"].set(mark.description)
+        self.spare_parts_var.set(mark.spare_parts)
 
         for item in self.marks_list.get_children():
             self.marks_list.delete(item)
@@ -133,8 +187,29 @@ class MarkDialog(Toplevel):
             self.marks_list.selection_set(first_item)
             self.marks_list.focus(first_item)
 
+    def delete_image(self):
+        self.delete_mark_image_btn.config(state=DISABLED)
+
+        selected_item = self.marks_list.selection()  # получаем выделенный элемент (возвращает кортеж)
+        if selected_item:  # если что-то выделено
+            item = self.marks_list.item(selected_item)
+            mark_id = item['values'][0]
+
+            if mark_id < 0:
+                del self.tmpMarks[mark_id]
+            else:
+                self.list_id_mark_images_for_delete.append(mark_id)
+            self.marks_list.delete(selected_item[0])
+            self.clear_image_display()
+            if self.marks_list.get_children():
+                first_item = self.marks_list.get_children()[0]
+                self.marks_list.selection_set(first_item)
+                self.marks_list.focus(first_item)
+
+
     def add_image(self):
         file_path = filedialog.askopenfilename(
+            parent=self,
             title="Выберите изображение",
             filetypes=(
                 ("Изображения", "*.jpg *.jpeg *.png *.gif *.bmp"),
@@ -146,33 +221,57 @@ class MarkDialog(Toplevel):
                     file_data = f.read()
                     name = os.path.basename(file_path)
 
+                    dialog = self.askmultilineinput(
+                        title="Введите текст",
+                        prompt="Пожалуйста, введите ваш текст (10 строк):",
+                        width=60,
+                        height=15
+                    )
+                    # description = simpledialog.askstring("Описание", "Введите описание:")
+
+                    if dialog:
+                        description = dialog
+                    else:
+                        description = ""
+
                     mark_image = MarkImage(
                         name=name,
                         data=file_data,
-                        description="",
-                        mark_id=self.mark_id
+                        description=description,
+                        mark_id=self.mark_id,
+                        user_id=self.user_id
                     )
-                    self.tmpMarks.append(mark_image)
-                    tmp_id = 0 - len(self.tmpMarks)
+                    tmp_id = -self.tmp_image_id-1
+                    self.tmpMarks[tmp_id] = mark_image
+                    self.tmp_image_id += 1
                     self.marks_list.insert("", tk.END, values=(tmp_id, mark_image.name, mark_image.description))
 
             except Exception as e:
-                messagebox.showerror("Ошибка", f"Ошибка добавление файла: {e}")
+                messagebox.showerror("Ошибка", f"Ошибка добавление файла: {e}", parent=self)
 
-    def on_schema_select(self, event):
+    def on_mark_image_select(self, event):
         selected_item = self.marks_list.selection()
         if selected_item:
             item = self.marks_list.item(selected_item)
             mark_id = item['values'][0]
-            self.update_schema_info(mark_id)
+            self.update_mark_image_info(mark_id)
 
-    def update_schema_info(self, mark_id):
+    def update_mark_image_info(self, mark_id):
+        self.selected_mark_image_id = mark_id
+        self.delete_mark_image_btn.config(state=NORMAL)
         if mark_id < 0:
-            tmp = mark_id * -1 - 1
-            data = self.tmpMarks[tmp].data
+            tmpMark = self.tmpMarks[mark_id]
+            self.image_comment_text.delete(1.0, tk.END)
+            self.image_comment_text.insert(tk.END, tmpMark.description)
+
+            data = tmpMark.data
         else:
             item = self.controller.get_mark_image(mark_id)
+            self.image_comment_text.delete(1.0, tk.END)
+            self.image_comment_text.insert(tk.END, item.description)
+
             data = item.data
+
         self.display_image(data)
 
     def display_image(self, image_data):
@@ -206,3 +305,12 @@ class MarkDialog(Toplevel):
         self.image_canvas.delete("all")
         if hasattr(self.image_canvas, 'image'):
             del self.image_canvas.image
+
+    def askmultilineinput(self, title="Ввод текста", prompt="", width=40, height=10, parent=None):
+        """Функция для вызова многострочного диалога ввода"""
+        if parent is None:
+            parent = tk.Tk()
+            parent.withdraw()
+
+        dialog = MultilineInputDialog(parent, title, prompt, width, height)
+        return dialog.show()
