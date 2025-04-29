@@ -7,6 +7,8 @@ class Equipment(Base):
     __tablename__ = "equipment"
 
     id = Column(Integer, primary_key=True, index=True)
+    korpus = Column(String(50, collation="NOCASE"), nullable=True)
+    position = Column(String(50, collation="NOCASE"), nullable=True)
     code = Column(String(50, collation="NOCASE"), nullable=True)
     name = Column(String(100, collation="NOCASE"), nullable=True)
     purpose = Column(String(collation="NOCASE"), nullable=True)
@@ -17,6 +19,8 @@ class Equipment(Base):
     group_name = Column(String(100, collation="NOCASE"), nullable=True)
     user_id = Column(Integer, nullable=False, index=True)
     is_deleted = Column(Boolean, nullable=False, default=False, index=True)
+    korpus_lower = Column(String(50, collation="NOCASE"), nullable=True)
+    position_lower = Column(String(50, collation="NOCASE"), nullable=True)
     code_lower = Column(String(50, collation="NOCASE"), nullable=True)
     name_lower = Column(String(100, collation="NOCASE"), nullable=True)
     purpose_lower = Column(String(collation="NOCASE"), nullable=True)

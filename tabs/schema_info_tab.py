@@ -4,7 +4,6 @@ import tkinter as tk
 from tkinter import ttk, filedialog, DISABLED, messagebox, simpledialog, NORMAL
 
 from PIL import Image, ImageTk
-from duckdb.duckdb import DELETE
 
 from db.models import EquipmentSchema
 from views.dialog_marks_scheme import SchemeDialog
@@ -100,7 +99,8 @@ class SchemaInfoTab:
                 with open(file_path, 'rb') as f:
                     file_data = f.read()
                     name = os.path.basename(file_path)
-                    description = simpledialog.askstring("Описание схемы", "Введите описание схемы:")
+                    description = simpledialog.askstring("Описание схемы", "Введите описание схемы:",
+                                                         parent=self.tk_root)
 
                     if file_path.lower().endswith('.pdf'):
                         import fitz

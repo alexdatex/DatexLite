@@ -18,12 +18,6 @@ class DatexLite:
     """Главный класс приложения для управления оборудованием."""
 
     def __init__(self, root: tk.Tk) -> None:
-        """
-        Инициализация приложения.
-
-        Args:
-            root: Главное окно Tkinter
-        """
         self.root = root
         self._setup_auth_window()
         self._init_db_connection()
@@ -240,6 +234,8 @@ class DatexLite:
         original_text = next(
             v["text"] for k, v in {
                 "id": {"text": "ID"},
+                "korpus": {"text": "Копрус по ГП"},
+                "position": {"text": "Позиция"},
                 "code": {"text": "Номер"},
                 "name": {"text": "Название"},
                 "type": {"text": "Тип"},
@@ -259,7 +255,10 @@ class DatexLite:
             self.tree_frame,
             yscrollcommand=self.tree_scroll.set,
             selectmode="browse",
-            columns=("id", "code", "name",
+            columns=("id",
+                     "korpus",
+                     "position",
+                     "code", "name",
                      "type",
                      "purpose",
                      "manufacturer",
@@ -273,6 +272,8 @@ class DatexLite:
         # Настройка колонок
         columns = {
             "id": {"text": "ID", "width": 0, "stretch": tk.NO, "minwidth": 0},
+            "korpus": {"text": "Копрус по ГП", "width": 50, "stretch": tk.YES, "minwidth": 50},
+            "position": {"text": "Позиция", "width": 50, "stretch": tk.YES, "minwidth": 50},
             "code": {"text": "Номер", "width": 50, "stretch": tk.YES, "minwidth": 50},
             "name": {"text": "Название", "width": 200, "stretch": tk.YES, "minwidth": 50},
             "type": {"text": "Тип", "width": 50, "stretch": tk.YES, "minwidth": 50},
@@ -308,6 +309,8 @@ class DatexLite:
         self.extra_container = ttk.Frame(button_frame)
         # Список названий дополнительных полей
         field_labels = [
+            ("Копрус по ГП", "korpus"),
+            ("Позиция", "position"),
             ("Технологический номер", "code"),
             ("Наименование оборудования", "name"),
             ("Тип", "type"),
@@ -417,6 +420,8 @@ class DatexLite:
                     "",
                     tk.END,
                     values=(component.id,
+                            component.korpus,
+                            component.position,
                             component.code,
                             component.name,
                             component.type,
@@ -492,7 +497,7 @@ class DatexLite:
 
     def update_equipment(self, equipment_id: int, data: dict) -> None:
         """Обновление данных оборудования."""
-        equipment = self.db.query(Equipment).get(equipment_id)
+        equipment = self.db_controller.get_component(equipment_id)
         if equipment:
             for key, value in data.items():
                 if key != "id":
@@ -539,7 +544,10 @@ class DatexLite:
         self.equipments_list.insert(
             "",
             tk.END,
-            values=(equipment.id, equipment.code, equipment.name,
+            values=(equipment.id, equipment.code,
+                    equipment.korpus,
+                    equipment.position,
+                    equipment.name,
                     equipment.type,
                     equipment.purpose,
                     equipment.manufacturer,

@@ -11,8 +11,14 @@ class MultilineInputDialog(tk.Toplevel):
         self.height = height
         self.result = None
 
+        self._previous_grab = parent.grab_current() if parent else None
+
         self.create_widgets()
         self.setup_geometry()
+
+        self.make_modal(parent)
+
+        self.text_area.focus_set()
 
     def create_widgets(self):
         # Основной фрейм
@@ -60,16 +66,57 @@ class MultilineInputDialog(tk.Toplevel):
 
     def setup_geometry(self):
         self.update_idletasks()
+
+        self.update_idletasks()
+
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        width = self.winfo_width()
+        height = self.winfo_height()
+
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+
         self.geometry(f"{self.winfo_reqwidth()}x{self.winfo_reqheight()}")
-        self.resizable(True, True)
+        self.geometry(f'+{x}+{y}')
+
+        self.resizable(False, False)
+
+    def make_modal(self, parent):
+        """Настройка модального поведения с учетом родительского окна"""
+        if parent:
+            # Временно отпускаем grab родителя, если он есть
+            if self._previous_grab:
+                self._previous_grab.grab_release()
+
+            # Делаем это окно модальным
+            self.grab_set()
+
+            # Устанавливаем отношение transient (для правильного отображения поверх)
+            self.transient(parent)
+
+        # Перехватываем закрытие окна через крестик
+        self.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
     def on_ok(self):
         """Обработка нажатия кнопки OK"""
         self.result = self.text_area.get("1.0", tk.END).strip()
-        self.destroy()
+        self.cleanup_and_destroy()
+
 
     def on_cancel(self):
         """Обработка нажатия кнопки Отмена"""
+        self.cleanup_and_destroy()
+
+    def cleanup_and_destroy(self):
+        """Восстановление grab и закрытие окна"""
+        # Отпускаем наш grab
+        self.grab_release()
+
+        # Восстанавливаем предыдущий grab, если он был
+        if self._previous_grab:
+            self._previous_grab.grab_set()
+
         self.destroy()
 
     def show(self):

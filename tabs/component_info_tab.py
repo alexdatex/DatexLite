@@ -15,6 +15,8 @@ class ComponentInfoTab:
         self.frame_info.pack(fill="both", expand=True)
 
         fields = [
+            ("Копрус по ГП:", "korpus"),
+            ("Позиция:", "position"),
             ("Технологический номер:", "code"),
             ("Наименовние оборудования:", "name"),
             ("Назначение:", "purpose"),
@@ -50,6 +52,8 @@ class ComponentInfoTab:
     def update(self, component_id):
         self.current_component_id = component_id
         equipment = self.db_service.get_component(component_id)
+        self.text_entries["korpus"].set(equipment.korpus)
+        self.text_entries["position"].set(equipment.position)
         self.text_entries["name"].set(equipment.name)
         self.text_entries["code"].set(equipment.code)
         self.text_entries["purpose"].set(equipment.purpose)

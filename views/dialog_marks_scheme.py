@@ -42,6 +42,18 @@ class SchemeDialog(Toplevel):
         self.resizable(True, True)
         self.wm_minsize(800, 800)
 
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+
+        width = 900
+        height = 900
+
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+
+        self.geometry(f'+{x}+{y}')
+
+
         self.iconphoto(False, self.main_root.photo)
 
         self.grab_set()
