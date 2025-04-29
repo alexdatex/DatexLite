@@ -1,4 +1,4 @@
-from tkinter import Toplevel, Label, Entry, Frame, messagebox
+from tkinter import Toplevel, Label, Entry, Frame, messagebox, StringVar, Text, END, Scrollbar
 from tkinter import ttk
 
 
@@ -24,7 +24,7 @@ class EquipmentDialog(Toplevel):
 
     def setup_ui(self):
         self.title("Редактировать оборудование" if self.equipment_id else "Добавить оборудование")
-        self.geometry("400x400")
+        self.geometry("450x520")
         self.resizable(False, False)
         self.grab_set()
         self.center_window(self)
@@ -34,7 +34,6 @@ class EquipmentDialog(Toplevel):
 
         fields = [
             ("Копрус по ГП:", "korpus"),
-            ("Позиция:", "position"),
             ("Технологический номер:", "code"),
             ("Наименовние оборудования:", "name"),
             ("Назначение:", "purpose"),
@@ -42,15 +41,33 @@ class EquipmentDialog(Toplevel):
             ("Тип:", "type"),
             ("Серийный номер:", "serial_number"),
             ("Дата изготовления (год):", "production_date"),
-            ("Группа:", "group_name")
+            ("Группа:", "group_name"),
+            ("Позиция:", "position"),
         ]
 
         self.entries = {}
+        self.text_entries = {}
+
         for i, (text, name) in enumerate(fields):
-            Label(form_frame, text=text).grid(row=i, column=0, sticky="e", pady=5)
-            entry = Entry(form_frame, width=30)
-            entry.grid(row=i, column=1, pady=5)
-            self.entries[name] = entry
+            if name == "position":  # Многострочное поле
+                ttk.Label(form_frame, text=text).grid(row=i, column=0, sticky="e", pady=5)
+                text_widget = Text(form_frame, width=30, height=10, wrap="word")
+                scrollbar = Scrollbar(form_frame, command=text_widget.yview)
+                text_widget.config(yscrollcommand=scrollbar.set)
+
+                text_widget.grid(row=i, column=1, pady=5, sticky="ns")
+                scrollbar.grid(row=i, column=2, sticky="ns")
+
+                text_widget.config(state="normal")
+                self.entries[name] = text_widget
+                self.text_entries[name] = text_widget
+            else:
+                ttk.Label(form_frame, text=text).grid(row=i, column=0, sticky="e", pady=5)
+                entry_text = StringVar()
+                entry = Entry(form_frame, width=30, textvariable=entry_text)
+                entry.grid(row=i, column=1, pady=5)
+                self.entries[name] = entry_text
+                self.text_entries[name] = entry_text
 
         button_frame = Frame(self)
         button_frame.pack(pady=10)
@@ -61,32 +78,24 @@ class EquipmentDialog(Toplevel):
     def fill_form(self):
         equipment = self.controller.get_component(self.equipment_id)
         if equipment:
-            self.entries["korpus"].insert(0, equipment.korpus)
-            self.entries["position"].insert(0, equipment.position)
-            self.entries["name"].insert(0, equipment.name)
-            self.entries["code"].insert(0, equipment.code)
-            self.entries["purpose"].insert(0, equipment.purpose)
-            self.entries["manufacturer"].insert(0, equipment.manufacturer)
-            self.entries["type"].insert(0, equipment.type)
-            self.entries["serial_number"].insert(0, equipment.serial_number)
-            self.entries["production_date"].insert(0, equipment.production_date)
-            self.entries["group_name"].insert(0, equipment.group_name)
+            for name, entry in self.text_entries.items():
+                value = getattr(equipment, name, "")
+                if isinstance(entry, Text):
+                    entry.delete("1.0", END)
+                    entry.insert("1.0", value)
+                else:
+                    entry.set(value)
 
     def save(self):
         if self.validate():
-            data = {name: entry.get() for name, entry in self.entries.items()}
-#            data["production_date"] = datetime.strptime(data["production_date"], "%Y-%m-%d").date()
 
-            data["korpus_lower"] = data["korpus"].lower()
-            data["position_lower"] = data["position"].lower()
-            data["code_lower"]=data["code"].lower()
-            data["name_lower"]=data["name"].lower()
-            data["purpose_lower"]=data["purpose"].lower()
-            data["manufacturer_lower"]=data["manufacturer"].lower()
-            data["type_lower"]=data["type"].lower()
-            data["serial_number_lower"]=data["serial_number"].lower()
-            data["production_date_lower"]=data["production_date"].lower()
-            data["group_name_lower"]=data["group_name"].lower()
+            data = {}
+            for name, entry in self.text_entries.items():
+                if isinstance(entry, Text):
+                    data[name] = entry.get("1.0", "end-1c")
+                else:
+                    data[name] = entry.get()
+                data[f"{name}_lower"] = data[name].lower()
 
             if self.equipment_id:
                 self.root.update_equipment(self.equipment_id, data)
