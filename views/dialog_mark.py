@@ -37,6 +37,18 @@ class MarkDialog(Toplevel):
     def setup_ui(self):
         self.title("Редактировать метку" if self.mark_id else "Добавить метку")
         self.geometry("800x650")
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        width = 800
+        height = 650
+
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+
+        self.geometry(f'+{x}+{y}')
+
+        self.resizable(False, False)
+
         self.resizable(False, False)
         self.iconphoto(False, self.main_root.photo)
         self.grab_set()
@@ -216,38 +228,38 @@ class MarkDialog(Toplevel):
             )
         )
         if file_path:
+
             try:
                 with open(file_path, 'rb') as f:
                     file_data = f.read()
                     name = os.path.basename(file_path)
 
-                    dialog = self.askmultilineinput(
-                        title="Введите текст",
-                        prompt="Пожалуйста, введите ваш текст (10 строк):",
-                        width=60,
-                        height=15
-                    )
-                    # description = simpledialog.askstring("Описание", "Введите описание:")
-
-                    if dialog:
-                        description = dialog
-                    else:
-                        description = ""
-
-                    mark_image = MarkImage(
-                        name=name,
-                        data=file_data,
-                        description=description,
-                        mark_id=self.mark_id,
-                        user_id=self.user_id
-                    )
-                    tmp_id = -self.tmp_image_id-1
-                    self.tmpMarks[tmp_id] = mark_image
-                    self.tmp_image_id += 1
-                    self.marks_list.insert("", tk.END, values=(tmp_id, mark_image.name, mark_image.description))
-
             except Exception as e:
                 messagebox.showerror("Ошибка", f"Ошибка добавление файла: {e}", parent=self)
+
+            dialog = self.askmultilineinput(
+                title="Введите текст",
+                prompt="Пожалуйста, введите ваш текст (10 строк):",
+                width=60,
+                height=15
+            )
+
+            if dialog:
+                description = dialog
+            else:
+                description = ""
+
+            mark_image = MarkImage(
+                name=name,
+                data=file_data,
+                description=description,
+                mark_id=self.mark_id,
+                user_id=self.user_id
+            )
+            tmp_id = -self.tmp_image_id - 1
+            self.tmpMarks[tmp_id] = mark_image
+            self.tmp_image_id += 1
+            self.marks_list.insert("", tk.END, values=(tmp_id, mark_image.name, mark_image.description))
 
     def on_mark_image_select(self, event):
         selected_item = self.marks_list.selection()
@@ -306,11 +318,8 @@ class MarkDialog(Toplevel):
         if hasattr(self.image_canvas, 'image'):
             del self.image_canvas.image
 
-    def askmultilineinput(self, title="Ввод текста", prompt="", width=40, height=10, parent=None):
+    def askmultilineinput(self, title="Ввод текста", prompt="", width=40, height=10):
         """Функция для вызова многострочного диалога ввода"""
-        if parent is None:
-            parent = tk.Tk()
-            parent.withdraw()
 
-        dialog = MultilineInputDialog(parent, title, prompt, width, height)
+        dialog = MultilineInputDialog(self, title, prompt, width, height)
         return dialog.show()

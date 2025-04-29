@@ -1,5 +1,4 @@
-from tkinter import Toplevel, Label, Entry, Button, Frame, messagebox
-from datetime import datetime
+from tkinter import Toplevel, Label, Entry, Frame, messagebox
 from tkinter import ttk
 
 
@@ -10,6 +9,7 @@ class EquipmentDialog(Toplevel):
         self.controller = controller
         self.equipment_id = equipment_id
         self.setup_ui()
+        self.iconphoto(False, self.root.photo)
 
         if equipment_id:
             self.fill_form()
@@ -24,7 +24,7 @@ class EquipmentDialog(Toplevel):
 
     def setup_ui(self):
         self.title("Редактировать оборудование" if self.equipment_id else "Добавить оборудование")
-        self.geometry("400x350")
+        self.geometry("400x400")
         self.resizable(False, False)
         self.grab_set()
         self.center_window(self)
@@ -33,6 +33,8 @@ class EquipmentDialog(Toplevel):
         form_frame.pack(fill="both", expand=True)
 
         fields = [
+            ("Копрус по ГП:", "korpus"),
+            ("Позиция:", "position"),
             ("Технологический номер:", "code"),
             ("Наименовние оборудования:", "name"),
             ("Назначение:", "purpose"),
@@ -59,6 +61,8 @@ class EquipmentDialog(Toplevel):
     def fill_form(self):
         equipment = self.controller.get_component(self.equipment_id)
         if equipment:
+            self.entries["korpus"].insert(0, equipment.korpus)
+            self.entries["position"].insert(0, equipment.position)
             self.entries["name"].insert(0, equipment.name)
             self.entries["code"].insert(0, equipment.code)
             self.entries["purpose"].insert(0, equipment.purpose)
@@ -73,6 +77,8 @@ class EquipmentDialog(Toplevel):
             data = {name: entry.get() for name, entry in self.entries.items()}
 #            data["production_date"] = datetime.strptime(data["production_date"], "%Y-%m-%d").date()
 
+            data["korpus_lower"] = data["korpus"].lower()
+            data["position_lower"] = data["position"].lower()
             data["code_lower"]=data["code"].lower()
             data["name_lower"]=data["name"].lower()
             data["purpose_lower"]=data["purpose"].lower()
@@ -96,16 +102,4 @@ class EquipmentDialog(Toplevel):
             if not entry.get():
                 messagebox.showerror("Ошибка", f"Поле '{name}' должно быть заполнено!", parent=self)
                 return False
-
-        # for name, entry in self.entries.items():
-        #     if not entry.get():
-        #         messagebox.showerror("Ошибка", f"Поле '{name}' должно быть заполнено!")
-        #         return False
-        #
-        # try:
-        #     datetime.strptime(self.entries["production_date"].get(), "%Y-%m-%d")
-        # except ValueError:
-        #     messagebox.showerror("Ошибка", "Некорректный формат даты! Используйте ГГГГ-ММ-ДД")
-        #     return False
-
         return True

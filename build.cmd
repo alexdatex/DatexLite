@@ -6,7 +6,7 @@ setlocal enabledelayedexpansion
 :: -------------------------------
 
 :: Конфигурация сборки
-set build_number=9
+set build_number=11
 set "app_name=DatexLite"
 set "icon_file=datex.ico"
 set "db_file=datex_lite_clean.db"
