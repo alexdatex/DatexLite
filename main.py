@@ -234,14 +234,14 @@ class DatexLite:
         original_text = next(
             v["text"] for k, v in {
                 "id": {"text": "ID"},
-                "korpus": {"text": "Копрус по ГП"},
-                "position": {"text": "Позиция"},
+                "group_name": {"text": "Группа"},
+                # "korpus": {"text": "Копрус по ГП"},
+                # "position": {"text": "Позиция"},
                 "code": {"text": "Номер"},
                 "name": {"text": "Название"},
                 "type": {"text": "Тип"},
                 "purpose": {"text": "Назначение"},
-                "manufacturer": {"text": "Производитель"},
-                "group_name": {"text": "Группа"}
+                "manufacturer": {"text": "Производитель"}
             }.items() if k == col
         )
 
@@ -256,13 +256,14 @@ class DatexLite:
             yscrollcommand=self.tree_scroll.set,
             selectmode="browse",
             columns=("id",
-                     "korpus",
-                     "position",
+                     "group_name",
+                     #                     "korpus",
+                     #                    "position",
                      "code", "name",
                      "type",
                      "purpose",
                      "manufacturer",
-                     "group_name"),
+                     ),
             show="headings"
         )
 
@@ -272,14 +273,14 @@ class DatexLite:
         # Настройка колонок
         columns = {
             "id": {"text": "ID", "width": 0, "stretch": tk.NO, "minwidth": 0},
-            "korpus": {"text": "Копрус по ГП", "width": 50, "stretch": tk.YES, "minwidth": 50},
-            "position": {"text": "Позиция", "width": 50, "stretch": tk.YES, "minwidth": 50},
+            "group_name": {"text": "Группа", "width": 50, "stretch": tk.YES, "minwidth": 50},
+            #            "korpus": {"text": "Копрус по ГП", "width": 50, "stretch": tk.YES, "minwidth": 50},
+            #            "position": {"text": "Позиция", "width": 50, "stretch": tk.YES, "minwidth": 50},
             "code": {"text": "Номер", "width": 50, "stretch": tk.YES, "minwidth": 50},
             "name": {"text": "Название", "width": 200, "stretch": tk.YES, "minwidth": 50},
             "type": {"text": "Тип", "width": 50, "stretch": tk.YES, "minwidth": 50},
             "purpose": {"text": "Назначение", "width": 50, "stretch": tk.YES, "minwidth": 50},
-            "manufacturer": {"text": "Производитель", "width": 50, "stretch": tk.YES, "minwidth": 50},
-            "group_name": {"text": "Группа", "width": 50, "stretch": tk.YES, "minwidth": 50}
+            "manufacturer": {"text": "Производитель", "width": 50, "stretch": tk.YES, "minwidth": 50}
         }
 
         self.sort_states = {col: False for col in columns}
@@ -420,14 +421,15 @@ class DatexLite:
                     "",
                     tk.END,
                     values=(component.id,
-                            component.korpus,
-                            component.position,
+                            component.group_name,
+                            #                            component.korpus,
+                            #                            component.position,
                             component.code,
                             component.name,
                             component.type,
                             component.purpose,
-                            component.manufacturer,
-                            component.group_name)
+                            component.manufacturer
+                            )
                 )
 
 
@@ -545,13 +547,13 @@ class DatexLite:
             "",
             tk.END,
             values=(equipment.id, equipment.code,
-                    equipment.korpus,
-                    equipment.position,
+                    equipment.group_name,
+                    #                    equipment.korpus,
+                    #                    equipment.position,
                     equipment.name,
                     equipment.type,
                     equipment.purpose,
-                    equipment.manufacturer,
-                    equipment.group_name)
+                    equipment.manufacturer)
         )
 
 

@@ -24,6 +24,7 @@ class ComponentInfoTab:
             ("Серийный номер:", "serial_number"),
             ("Дата изготовления (год):", "production_date"),
             ("Группа:", "group_name"),
+            ("Аудит выполнен:", "is_audit_completed"),
             ("Позиция:", "position")
         ]
 
@@ -31,9 +32,9 @@ class ComponentInfoTab:
         self.text_entries = {}
 
         for i, (text, name) in enumerate(fields):
-            if name == "position":  # Многострочное поле
-                ttk.Label(self.frame_info, text=text).grid(row=i, column=0, sticky="e", pady=5)
+            ttk.Label(self.frame_info, text=text).grid(row=i, column=0, sticky="e", pady=5)
 
+            if name == "position":  # Многострочное поле
                 text_widget = tk.Text(self.frame_info, width=30, height=10, wrap="word")
                 scrollbar = tk.Scrollbar(self.frame_info, command=text_widget.yview)
                 text_widget.config(yscrollcommand=scrollbar.set)
@@ -46,13 +47,20 @@ class ComponentInfoTab:
                 self.entries[name] = text_widget
                 self.text_entries[name] = text_widget
             else:
-                ttk.Label(self.frame_info, text=text).grid(row=i, column=0, sticky="e", pady=5)
-                entry_text = tk.StringVar()
-                entry = tk.Entry(self.frame_info, width=30, textvariable=entry_text)
-                entry.grid(row=i, column=1, pady=5)
-                entry.config(state="readonly")
-                self.entries[name] = entry
-                self.text_entries[name] = entry_text
+                if name == "is_audit_completed":
+                    # Создаем Combobox с вариантами "Нет" и "Да"
+                    combobox = ttk.Combobox(self.frame_info, values=["Нет", "Да"], state="disabled")
+                    combobox.grid(row=i, column=1, pady=5)
+                    combobox.set("Нет")  # Устанавливаем значение по умолчанию
+                    self.entries[name] = combobox
+                    self.text_entries[name] = combobox
+                else:
+                    entry_text = tk.StringVar()
+                    entry = tk.Entry(self.frame_info, width=30, textvariable=entry_text)
+                    entry.grid(row=i, column=1, pady=5)
+                    entry.config(state="readonly")
+                    self.entries[name] = entry
+                    self.text_entries[name] = entry_text
 
         button_frame = tk.Frame(self.frame, padx=10, pady=5)
         button_frame.pack(fill="both", expand=True)
@@ -67,18 +75,52 @@ class ComponentInfoTab:
     def update(self, component_id):
         self.current_component_id = component_id
         equipment = self.db_service.get_component(component_id)
-
-        for name, entry in self.text_entries.items():
-            value = getattr(equipment, name, "")
-            if isinstance(entry, tk.Text):
-                entry.config(state="normal")
-                entry.delete("1.0", tk.END)
-                entry.insert("1.0", value)
-                entry.config(state=tk.DISABLED)
-            else:
-                entry.set(value)
+        self.update_entries_from_equipment(equipment)
 
         self.edit_btn.config(state=tk.NORMAL)
+
+    def update_entries_from_equipment(self, equipment):
+        """Обновляет все поля формы из атрибутов объекта equipment"""
+        for field_name, field_widget in self.text_entries.items():
+            # Получаем значение из equipment или пустую строку по умолчанию
+            field_value = getattr(equipment, field_name, "")
+
+            # Обработка для виджета Text
+            if isinstance(field_widget, tk.Text):
+                self._update_text_widget(field_widget, field_value)
+                continue
+
+            # Обработка для Combobox
+            if isinstance(field_widget, ttk.Combobox):
+                self._update_combobox_widget(field_widget, field_value)
+                continue
+
+            # Обработка для всех остальных виджетов (Entry, Spinbox и т.д.)
+            self._update_standard_widget(field_widget, field_value)
+
+    def _update_text_widget(self, widget, value):
+        """Обновляет содержимое текстового виджета"""
+        widget.config(state="normal")
+        widget.delete("1.0", tk.END)
+        widget.insert("1.0", str(value))
+        widget.config(state=tk.DISABLED)
+
+    def _update_combobox_widget(self, widget, value):
+        """Обновляет значение Combobox на основе переданного значения"""
+        # Преобразуем булево или числовое значение в "Да"/"Нет"
+        if value in (True, 1, "1", "Да"):
+            widget.set("Да")
+        else:
+            widget.set("Нет")
+
+    def _update_standard_widget(self, widget, value):
+        """Обновляет стандартные виджеты (Entry, Spinbox и др.)"""
+        try:
+            widget.set(str(value))
+        except AttributeError:
+            # Если у виджета нет метода set, используем delete/insert
+            widget.delete(0, tk.END)
+            widget.insert(0, str(value))
 
     def clean(self):
         self.current_component_id = -1
