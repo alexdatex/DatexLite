@@ -508,6 +508,20 @@ class DatexLite:
             self.current_component_id = -1
             self.empty_component_info()
             self.update_equipments_list()
+            self.select_row_by_column1_value(equipment.id)
+
+    def select_row_by_column1_value(self, value):
+        items = self.equipments_list.get_children()
+
+        # Ищем элемент с нужным значением в первой колонке
+        for item in items:
+            if self.equipments_list.item(item, 'values')[0] == str(value):
+                # Устанавливаем фокус и выделение
+                self.equipments_list.selection_set(item)
+                self.equipments_list.focus(item)
+                self.equipments_list.see(item)
+                return True
+        return False
 
     def delete_equipment(self) -> None:
         answer = messagebox.askyesno(
