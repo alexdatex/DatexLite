@@ -19,6 +19,7 @@ class Equipment(Base):
     group_name = Column(String(100, collation="NOCASE"), nullable=True)
     user_id = Column(Integer, nullable=False, index=True)
     is_deleted = Column(Boolean, nullable=False, default=False, index=True)
+    is_audit_completed = Column(Boolean, nullable=False, default=False, index=True)
     korpus_lower = Column(String(50, collation="NOCASE"), nullable=True)
     position_lower = Column(String(50, collation="NOCASE"), nullable=True)
     code_lower = Column(String(50, collation="NOCASE"), nullable=True)
