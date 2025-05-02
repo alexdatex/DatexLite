@@ -1,6 +1,8 @@
 from tkinter import Toplevel, Label, Entry, Frame, messagebox, StringVar, Text, END, Scrollbar
 from tkinter import ttk
 
+from db import Equipment
+
 
 class EquipmentDialog(Toplevel):
     def __init__(self, parent, root, controller, equipment_id=None):
@@ -14,7 +16,7 @@ class EquipmentDialog(Toplevel):
         if equipment_id:
             self.fill_form()
 
-    def center_window(self,main_frame):
+    def center_window(self, main_frame):
         main_frame.update_idletasks()
         width = main_frame.winfo_width()
         height = main_frame.winfo_height()
@@ -24,7 +26,7 @@ class EquipmentDialog(Toplevel):
 
     def setup_ui(self):
         self.title("Редактировать оборудование" if self.equipment_id else "Добавить оборудование")
-        self.geometry("450x520")
+        self.geometry("450x550")
         self.resizable(False, False)
         self.grab_set()
         self.center_window(self)
@@ -33,7 +35,7 @@ class EquipmentDialog(Toplevel):
         form_frame.pack(fill="both", expand=True)
 
         fields = [
-            ("Копрус по ГП:", "korpus"),
+            ("Корпус по ГП:", "korpus"),
             ("Технологический номер:", "code"),
             ("Наименовние оборудования:", "name"),
             ("Назначение:", "purpose"),
@@ -42,6 +44,7 @@ class EquipmentDialog(Toplevel):
             ("Серийный номер:", "serial_number"),
             ("Дата изготовления (год):", "production_date"),
             ("Группа:", "group_name"),
+            ("Аудит выполнен:", "is_audit_completed"),
             ("Позиция:", "position"),
         ]
 
@@ -49,8 +52,8 @@ class EquipmentDialog(Toplevel):
         self.text_entries = {}
 
         for i, (text, name) in enumerate(fields):
+            ttk.Label(form_frame, text=text).grid(row=i, column=0, sticky="e", pady=5)
             if name == "position":  # Многострочное поле
-                ttk.Label(form_frame, text=text).grid(row=i, column=0, sticky="e", pady=5)
                 text_widget = Text(form_frame, width=30, height=10, wrap="word")
                 scrollbar = Scrollbar(form_frame, command=text_widget.yview)
                 text_widget.config(yscrollcommand=scrollbar.set)
@@ -62,12 +65,19 @@ class EquipmentDialog(Toplevel):
                 self.entries[name] = text_widget
                 self.text_entries[name] = text_widget
             else:
-                ttk.Label(form_frame, text=text).grid(row=i, column=0, sticky="e", pady=5)
-                entry_text = StringVar()
-                entry = Entry(form_frame, width=30, textvariable=entry_text)
-                entry.grid(row=i, column=1, pady=5)
-                self.entries[name] = entry_text
-                self.text_entries[name] = entry_text
+                if name == "is_audit_completed":
+                    # Создаем Combobox с вариантами "Нет" и "Да"
+                    combobox = ttk.Combobox(form_frame, values=["Нет, в процессе", "Да"])
+                    combobox.grid(row=i, column=1, pady=5)
+                    combobox.set("Нет, в процессе")  # Устанавливаем значение по умолчанию
+                    self.entries[name] = combobox
+                    self.text_entries[name] = combobox
+                else:
+                    entry_text = StringVar()
+                    entry = Entry(form_frame, width=30, textvariable=entry_text)
+                    entry.grid(row=i, column=1, pady=5)
+                    self.entries[name] = entry_text
+                    self.text_entries[name] = entry_text
 
         button_frame = Frame(self)
         button_frame.pack(pady=10)
@@ -77,14 +87,48 @@ class EquipmentDialog(Toplevel):
 
     def fill_form(self):
         equipment = self.controller.get_component(self.equipment_id)
-        if equipment:
-            for name, entry in self.text_entries.items():
-                value = getattr(equipment, name, "")
-                if isinstance(entry, Text):
-                    entry.delete("1.0", END)
-                    entry.insert("1.0", value)
-                else:
-                    entry.set(value)
+        self.update_entries_from_equipmentupdate_entries_from_equipment(equipment)
+
+    def update_entries_from_equipmentupdate_entries_from_equipment(self, equipment):
+        """Обновляет все поля формы из атрибутов объекта equipment"""
+        for field_name, field_widget in self.text_entries.items():
+            # Получаем значение из equipment или пустую строку по умолчанию
+            field_value = getattr(equipment, field_name, "")
+
+            # Обработка для виджета Text
+            if isinstance(field_widget, Text):
+                self._update_text_widget(field_widget, field_value)
+                continue
+
+            # Обработка для Combobox
+            if isinstance(field_widget, ttk.Combobox):
+                self._update_combobox_widget(field_widget, field_value)
+                continue
+
+            # Обработка для всех остальных виджетов (Entry, Spinbox и т.д.)
+            self._update_standard_widget(field_widget, field_value)
+
+    def _update_text_widget(self, widget, value):
+        """Обновляет содержимое текстового виджета"""
+        widget.delete("1.0", END)
+        widget.insert("1.0", str(value))
+
+    def _update_combobox_widget(self, widget, value):
+        """Обновляет значение Combobox на основе переданного значения"""
+        # Преобразуем булево или числовое значение в "Да"/"Нет"
+        if value in (True, 1, "1", "Да"):
+            widget.set("Да")
+        else:
+            widget.set("Нет, в процессе")
+
+    def _update_standard_widget(self, widget, value):
+        """Обновляет стандартные виджеты (Entry, Spinbox и др.)"""
+        try:
+            widget.set(str(value))
+        except AttributeError:
+            # Если у виджета нет метода set, используем delete/insert
+            widget.delete(0, END)
+            widget.insert(0, str(value))
 
     def save(self):
         if self.validate():
@@ -92,10 +136,19 @@ class EquipmentDialog(Toplevel):
             data = {}
             for name, entry in self.text_entries.items():
                 if isinstance(entry, Text):
-                    data[name] = entry.get("1.0", "end-1c")
+                    value = entry.get("1.0", "end-1c")
+                elif isinstance(entry, ttk.Combobox):
+                    value = 1 if entry.get() == 'Да' else 0
                 else:
-                    data[name] = entry.get()
-                data[f"{name}_lower"] = data[name].lower()
+                    value = entry.get()
+
+                # Сохраняем значение
+                data[name] = value
+
+                # Добавляем lowercase версию, если есть соответствующее поле
+                lower_field = f"{name}_lower"
+                if hasattr(Equipment, lower_field):
+                    data[lower_field] = str(value).lower()
 
             if self.equipment_id:
                 self.root.update_equipment(self.equipment_id, data)
@@ -105,7 +158,7 @@ class EquipmentDialog(Toplevel):
             self.destroy()
 
     def validate(self):
-        names = ["name","group_name"]
+        names = ["name", "group_name"]
         for name in names:
             entry = self.entries.get(name)
             if not entry.get():

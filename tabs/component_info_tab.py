@@ -15,7 +15,7 @@ class ComponentInfoTab:
         self.frame_info.pack(fill="both", expand=True)
 
         fields = [
-            ("Копрус по ГП:", "korpus"),
+            ("Корпус по ГП:", "korpus"),
             ("Технологический номер:", "code"),
             ("Наименовние оборудования:", "name"),
             ("Назначение:", "purpose"),
@@ -49,9 +49,9 @@ class ComponentInfoTab:
             else:
                 if name == "is_audit_completed":
                     # Создаем Combobox с вариантами "Нет" и "Да"
-                    combobox = ttk.Combobox(self.frame_info, values=["Нет", "Да"], state="disabled")
+                    combobox = ttk.Combobox(self.frame_info, values=["Нет, в процессе", "Да"], state="disabled")
                     combobox.grid(row=i, column=1, pady=5)
-                    combobox.set("Нет")  # Устанавливаем значение по умолчанию
+                    combobox.set("Нет, в процессе")  # Устанавливаем значение по умолчанию
                     self.entries[name] = combobox
                     self.text_entries[name] = combobox
                 else:
@@ -68,8 +68,9 @@ class ComponentInfoTab:
                                   state=DISABLED)
         self.edit_btn.pack(side="left", padx=5)
 
-    def open_edit_dialog(self):
-        self.root.update_dialog(self.current_component_id)
+    def open_edit_dialog(self, event):
+        if self.current_component_id != -1:
+            self.root.update_dialog(self.current_component_id)
 
 
     def update(self, component_id):
@@ -111,7 +112,7 @@ class ComponentInfoTab:
         if value in (True, 1, "1", "Да"):
             widget.set("Да")
         else:
-            widget.set("Нет")
+            widget.set("Нет, в процессе")
 
     def _update_standard_widget(self, widget, value):
         """Обновляет стандартные виджеты (Entry, Spinbox и др.)"""

@@ -235,7 +235,7 @@ class DatexLite:
             v["text"] for k, v in {
                 "id": {"text": "ID"},
                 "group_name": {"text": "Группа"},
-                # "korpus": {"text": "Копрус по ГП"},
+                # "korpus": {"text": "Корпус по ГП"},
                 # "position": {"text": "Позиция"},
                 "code": {"text": "Номер"},
                 "name": {"text": "Название"},
@@ -274,7 +274,7 @@ class DatexLite:
         columns = {
             "id": {"text": "ID", "width": 0, "stretch": tk.NO, "minwidth": 0},
             "group_name": {"text": "Группа", "width": 50, "stretch": tk.YES, "minwidth": 50},
-            #            "korpus": {"text": "Копрус по ГП", "width": 50, "stretch": tk.YES, "minwidth": 50},
+            #            "korpus": {"text": "Корпус по ГП", "width": 50, "stretch": tk.YES, "minwidth": 50},
             #            "position": {"text": "Позиция", "width": 50, "stretch": tk.YES, "minwidth": 50},
             "code": {"text": "Номер", "width": 50, "stretch": tk.YES, "minwidth": 50},
             "name": {"text": "Название", "width": 200, "stretch": tk.YES, "minwidth": 50},
@@ -295,6 +295,10 @@ class DatexLite:
                                         minwidth=params["minwidth"])
 
         self.equipments_list.bind("<<TreeviewSelect>>", self.on_equipments_list_select)
+        self.equipments_list.bind('<Double-1>', self.open_edit_dialog)
+
+    def open_edit_dialog(self, event):
+        self.component_info_tab.open_edit_dialog(event)
 
     def _create_filters(self):
         button_frame = ttk.Frame(self.left_panel)
@@ -310,14 +314,15 @@ class DatexLite:
         self.extra_container = ttk.Frame(button_frame)
         # Список названий дополнительных полей
         field_labels = [
-            ("Копрус по ГП", "korpus"),
+            ("Корпус по ГП", "korpus"),
             ("Позиция", "position"),
             ("Технологический номер", "code"),
             ("Наименование оборудования", "name"),
             ("Тип", "type"),
             ("Назначение", "purpose"),
             ("Производитель", "manufacturer"),
-            ("Группа", "group_name")
+            ("Группа", "group_name"),
+            ("Аудит выполнен", "is_audit_completed")
         ]
         self.extra_entries = []
         self.text_entries = {}
@@ -326,10 +331,17 @@ class DatexLite:
             frame = ttk.Frame(self.extra_container)
             frame.pack(fill='x', padx=20, pady=5)
             ttk.Label(frame, text=text).pack(side='left')
-            entry = ttk.Entry(frame, width=30, textvariable=entry_text)
-            entry.pack(side='right', expand=True, fill='x')
-            self.extra_entries.append(entry)
-            self.text_entries[name] = entry_text
+
+            if name == "is_audit_completed":
+                combobox = ttk.Combobox(frame, values=["", "Нет, в процессе", "Да"])
+                combobox.pack(side='right', expand=True, fill='x')
+                combobox.set("")  # Устанавливаем значение по умолчанию
+                self.text_entries[name] = combobox
+            else:
+                entry = ttk.Entry(frame, width=30, textvariable=entry_text)
+                entry.pack(side='right', expand=True, fill='x')
+                self.extra_entries.append(entry)
+                self.text_entries[name] = entry_text
 
         add_btn = ttk.Button(
             self.extra_container,
@@ -389,7 +401,11 @@ class DatexLite:
             self.extra_container.pack_forget()
             self.toggle_button.config(text="Показать фильтр")
             for field in self.text_entries:
-                self.text_entries[field].set("");
+                field_widget = self.text_entries[field]
+                if isinstance(field_widget, ttk.Combobox):
+                    field_widget.set("")
+                else:
+                    field_widget.set("")
             # self.submit_button.config(state='disabled')
 
         self.fields_visible = not self.fields_visible
@@ -508,6 +524,20 @@ class DatexLite:
             self.current_component_id = -1
             self.empty_component_info()
             self.update_equipments_list()
+            self.select_row_by_column1_value(equipment.id)
+
+    def select_row_by_column1_value(self, value):
+        items = self.equipments_list.get_children()
+
+        # Ищем элемент с нужным значением в первой колонке
+        for item in items:
+            if self.equipments_list.item(item, 'values')[0] == str(value):
+                # Устанавливаем фокус и выделение
+                self.equipments_list.selection_set(item)
+                self.equipments_list.focus(item)
+                self.equipments_list.see(item)
+                return True
+        return False
 
     def delete_equipment(self) -> None:
         answer = messagebox.askyesno(
