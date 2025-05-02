@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy.dialects.mssql import TINYINT
 
 from ..database import Base
 
@@ -19,7 +20,7 @@ class Equipment(Base):
     group_name = Column(String(100, collation="NOCASE"), nullable=True)
     user_id = Column(Integer, nullable=False, index=True)
     is_deleted = Column(Boolean, nullable=False, default=False, index=True)
-    is_audit_completed = Column(Boolean, nullable=False, default=False, index=True)
+    is_audit_completed = Column(TINYINT, nullable=False, default=False, index=True)
     korpus_lower = Column(String(50, collation="NOCASE"), nullable=True)
     position_lower = Column(String(50, collation="NOCASE"), nullable=True)
     code_lower = Column(String(50, collation="NOCASE"), nullable=True)
