@@ -15,7 +15,7 @@ class ComponentInfoTab:
         self.frame_info.pack(fill="both", expand=True)
 
         fields = [
-            ("Копрус по ГП:", "korpus"),
+            ("Корпус по ГП:", "korpus"),
             ("Технологический номер:", "code"),
             ("Наименовние оборудования:", "name"),
             ("Назначение:", "purpose"),

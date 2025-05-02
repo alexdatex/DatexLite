@@ -235,7 +235,7 @@ class DatexLite:
             v["text"] for k, v in {
                 "id": {"text": "ID"},
                 "group_name": {"text": "Группа"},
-                # "korpus": {"text": "Копрус по ГП"},
+                # "korpus": {"text": "Корпус по ГП"},
                 # "position": {"text": "Позиция"},
                 "code": {"text": "Номер"},
                 "name": {"text": "Название"},
@@ -274,7 +274,7 @@ class DatexLite:
         columns = {
             "id": {"text": "ID", "width": 0, "stretch": tk.NO, "minwidth": 0},
             "group_name": {"text": "Группа", "width": 50, "stretch": tk.YES, "minwidth": 50},
-            #            "korpus": {"text": "Копрус по ГП", "width": 50, "stretch": tk.YES, "minwidth": 50},
+            #            "korpus": {"text": "Корпус по ГП", "width": 50, "stretch": tk.YES, "minwidth": 50},
             #            "position": {"text": "Позиция", "width": 50, "stretch": tk.YES, "minwidth": 50},
             "code": {"text": "Номер", "width": 50, "stretch": tk.YES, "minwidth": 50},
             "name": {"text": "Название", "width": 200, "stretch": tk.YES, "minwidth": 50},
@@ -310,7 +310,7 @@ class DatexLite:
         self.extra_container = ttk.Frame(button_frame)
         # Список названий дополнительных полей
         field_labels = [
-            ("Копрус по ГП", "korpus"),
+            ("Корпус по ГП", "korpus"),
             ("Позиция", "position"),
             ("Технологический номер", "code"),
             ("Наименование оборудования", "name"),
