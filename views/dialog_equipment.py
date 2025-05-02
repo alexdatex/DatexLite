@@ -67,9 +67,9 @@ class EquipmentDialog(Toplevel):
             else:
                 if name == "is_audit_completed":
                     # Создаем Combobox с вариантами "Нет" и "Да"
-                    combobox = ttk.Combobox(form_frame, values=["Нет", "Да"])
+                    combobox = ttk.Combobox(form_frame, values=["Нет, в процессе", "Да"])
                     combobox.grid(row=i, column=1, pady=5)
-                    combobox.set("Нет")  # Устанавливаем значение по умолчанию
+                    combobox.set("Нет, в процессе")  # Устанавливаем значение по умолчанию
                     self.entries[name] = combobox
                     self.text_entries[name] = combobox
                 else:
@@ -119,7 +119,7 @@ class EquipmentDialog(Toplevel):
         if value in (True, 1, "1", "Да"):
             widget.set("Да")
         else:
-            widget.set("Нет")
+            widget.set("Нет, в процессе")
 
     def _update_standard_widget(self, widget, value):
         """Обновляет стандартные виджеты (Entry, Spinbox и др.)"""

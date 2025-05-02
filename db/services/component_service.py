@@ -18,10 +18,15 @@ class ComponentService:
                 if hasattr(Equipment, field):
                     value = filters[field].get().strip().replace('%', '\\%').replace('_', '\\_')
                     if value:
-                        field = f"{field}_lower"
-                        if hasattr(Equipment, field):
-                            value=value.lower()
-                            conditions.append(getattr(Equipment, field).like(f"%{value}%"))
+                        if field == "is_audit_completed":
+                            if value != "":
+                                conditions.append(
+                                    Equipment.is_audit_completed == (True if value == 'Да' else False))
+                        else:
+                            field = f"{field}_lower"
+                            if hasattr(Equipment, field):
+                                value = value.lower()
+                                conditions.append(getattr(Equipment, field).like(f"%{value}%"))
             query = db.query(Equipment)
             if len(conditions) == 1:
                 return query.filter(conditions[0])

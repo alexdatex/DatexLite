@@ -295,6 +295,10 @@ class DatexLite:
                                         minwidth=params["minwidth"])
 
         self.equipments_list.bind("<<TreeviewSelect>>", self.on_equipments_list_select)
+        self.equipments_list.bind('<Double-1>', self.open_edit_dialog)
+
+    def open_edit_dialog(self, event):
+        self.component_info_tab.open_edit_dialog(event)
 
     def _create_filters(self):
         button_frame = ttk.Frame(self.left_panel)
@@ -317,7 +321,8 @@ class DatexLite:
             ("Тип", "type"),
             ("Назначение", "purpose"),
             ("Производитель", "manufacturer"),
-            ("Группа", "group_name")
+            ("Группа", "group_name"),
+            ("Аудит выполнен", "is_audit_completed")
         ]
         self.extra_entries = []
         self.text_entries = {}
@@ -326,10 +331,17 @@ class DatexLite:
             frame = ttk.Frame(self.extra_container)
             frame.pack(fill='x', padx=20, pady=5)
             ttk.Label(frame, text=text).pack(side='left')
-            entry = ttk.Entry(frame, width=30, textvariable=entry_text)
-            entry.pack(side='right', expand=True, fill='x')
-            self.extra_entries.append(entry)
-            self.text_entries[name] = entry_text
+
+            if name == "is_audit_completed":
+                combobox = ttk.Combobox(frame, values=["", "Нет, в процессе", "Да"])
+                combobox.pack(side='right', expand=True, fill='x')
+                combobox.set("")  # Устанавливаем значение по умолчанию
+                self.text_entries[name] = combobox
+            else:
+                entry = ttk.Entry(frame, width=30, textvariable=entry_text)
+                entry.pack(side='right', expand=True, fill='x')
+                self.extra_entries.append(entry)
+                self.text_entries[name] = entry_text
 
         add_btn = ttk.Button(
             self.extra_container,
@@ -389,7 +401,11 @@ class DatexLite:
             self.extra_container.pack_forget()
             self.toggle_button.config(text="Показать фильтр")
             for field in self.text_entries:
-                self.text_entries[field].set("");
+                field_widget = self.text_entries[field]
+                if isinstance(field_widget, ttk.Combobox):
+                    field_widget.set("")
+                else:
+                    field_widget.set("")
             # self.submit_button.config(state='disabled')
 
         self.fields_visible = not self.fields_visible
