@@ -1,6 +1,7 @@
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
+from constants.status_states import StatusStates
 from ..models import EquipmentSchema
 from ..models.equipment import Equipment
 
@@ -21,7 +22,7 @@ class ComponentService:
                         if field == "is_audit_completed":
                             if value != "":
                                 conditions.append(
-                                    Equipment.is_audit_completed == (True if value == 'Да' else False))
+                                    Equipment.is_audit_completed == StatusStates.get_id_by_text(value))
                         else:
                             field = f"{field}_lower"
                             if hasattr(Equipment, field):

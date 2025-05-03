@@ -7,7 +7,7 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///./datex_lite.db"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )
-engine.echo = False
+engine.echo = True
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

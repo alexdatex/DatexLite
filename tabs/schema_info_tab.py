@@ -125,9 +125,6 @@ class SchemaInfoTab:
             except Exception as e:
                 messagebox.showerror("Ошибка", f"Ошибка добавление файла: {e}", parent=self)
 
-    def open_edit_dialog(self):
-        pass
-
     def delete_schema(self):
         answer = messagebox.askyesno(
             "Подтверждение удаления",

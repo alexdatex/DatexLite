@@ -1,6 +1,7 @@
 from tkinter import Toplevel, Label, Entry, Frame, messagebox, StringVar, Text, END, Scrollbar
 from tkinter import ttk
 
+from constants.status_states import StatusStates
 from db import Equipment
 
 
@@ -66,10 +67,9 @@ class EquipmentDialog(Toplevel):
                 self.text_entries[name] = text_widget
             else:
                 if name == "is_audit_completed":
-                    # Создаем Combobox с вариантами "Нет" и "Да"
-                    combobox = ttk.Combobox(form_frame, values=["Нет, в процессе", "Да"])
+                    combobox = ttk.Combobox(form_frame, values=StatusStates.get_combobox_values())
                     combobox.grid(row=i, column=1, pady=5)
-                    combobox.set("Нет, в процессе")  # Устанавливаем значение по умолчанию
+                    combobox.set(StatusStates.get_text_by_id(0))
                     self.entries[name] = combobox
                     self.text_entries[name] = combobox
                 else:
@@ -114,19 +114,12 @@ class EquipmentDialog(Toplevel):
         widget.insert("1.0", str(value))
 
     def _update_combobox_widget(self, widget, value):
-        """Обновляет значение Combobox на основе переданного значения"""
-        # Преобразуем булево или числовое значение в "Да"/"Нет"
-        if value in (True, 1, "1", "Да"):
-            widget.set("Да")
-        else:
-            widget.set("Нет, в процессе")
+        widget.set(StatusStates.get_text_by_id(value))
 
     def _update_standard_widget(self, widget, value):
-        """Обновляет стандартные виджеты (Entry, Spinbox и др.)"""
         try:
             widget.set(str(value))
         except AttributeError:
-            # Если у виджета нет метода set, используем delete/insert
             widget.delete(0, END)
             widget.insert(0, str(value))
 
@@ -138,7 +131,7 @@ class EquipmentDialog(Toplevel):
                 if isinstance(entry, Text):
                     value = entry.get("1.0", "end-1c")
                 elif isinstance(entry, ttk.Combobox):
-                    value = 1 if entry.get() == 'Да' else 0
+                    value = StatusStates.get_id_by_text(entry.get())
                 else:
                     value = entry.get()
 

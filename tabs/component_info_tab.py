@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, DISABLED
 
+from constants.status_states import StatusStates
+
 
 class ComponentInfoTab:
     def __init__(self, parent, db_service, root):
@@ -48,8 +50,8 @@ class ComponentInfoTab:
                 self.text_entries[name] = text_widget
             else:
                 if name == "is_audit_completed":
-                    # Создаем Combobox с вариантами "Нет" и "Да"
-                    combobox = ttk.Combobox(self.frame_info, values=["Нет, в процессе", "Да"], state="disabled")
+                    combobox = ttk.Combobox(self.frame_info, values=StatusStates.get_combobox_values(),
+                                            state="disabled")
                     combobox.grid(row=i, column=1, pady=5)
                     combobox.set("Нет, в процессе")  # Устанавливаем значение по умолчанию
                     self.entries[name] = combobox
@@ -65,13 +67,12 @@ class ComponentInfoTab:
         button_frame = tk.Frame(self.frame, padx=10, pady=5)
         button_frame.pack(fill="both", expand=True)
         self.edit_btn = ttk.Button(button_frame, text="Редактировать оборудование", command=self.open_edit_dialog,
-                                  state=DISABLED)
+                                   state=DISABLED)
         self.edit_btn.pack(side="left", padx=5)
 
-    def open_edit_dialog(self, event):
+    def open_edit_dialog(self):
         if self.current_component_id != -1:
             self.root.update_dialog(self.current_component_id)
-
 
     def update(self, component_id):
         self.current_component_id = component_id
@@ -107,19 +108,12 @@ class ComponentInfoTab:
         widget.config(state=tk.DISABLED)
 
     def _update_combobox_widget(self, widget, value):
-        """Обновляет значение Combobox на основе переданного значения"""
-        # Преобразуем булево или числовое значение в "Да"/"Нет"
-        if value in (True, 1, "1", "Да"):
-            widget.set("Да")
-        else:
-            widget.set("Нет, в процессе")
+        widget.set(StatusStates.get_text_by_id(value))
 
     def _update_standard_widget(self, widget, value):
-        """Обновляет стандартные виджеты (Entry, Spinbox и др.)"""
         try:
             widget.set(str(value))
         except AttributeError:
-            # Если у виджета нет метода set, используем delete/insert
             widget.delete(0, tk.END)
             widget.insert(0, str(value))
 
