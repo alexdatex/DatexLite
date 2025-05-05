@@ -6,6 +6,7 @@ from tkinter import ttk, messagebox, DISABLED
 
 from PIL import ImageTk
 
+from constants.constants import INI_FILE
 from constants.icons import image
 from constants.status_states import StatusStates
 from db import ComponentService, Equipment, DBController, SessionLocal, init_db
@@ -149,7 +150,7 @@ class DatexLite:
         self.default_x = None
         self.default_y = None
         self.config = ConfigParser()
-        self.config_file = "settings.ini"
+        self.config_file = INI_FILE
         self.main_root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # Дополнительные поля (изначально скрыты)

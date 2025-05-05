@@ -6,10 +6,11 @@ setlocal enabledelayedexpansion
 :: -------------------------------
 
 :: Конфигурация сборки
-set build_number=15
+set build_number=16
 set "app_name=DatexLite"
 set "icon_file=datex.ico"
 set "db_file=datex_lite_clean.db"
+set ini_file=datexlite_default.ini
 set "version_script=add_version.py"
 
 :: Основной процесс сборки
@@ -69,6 +70,7 @@ goto :EOF
         exit /b 1
     )
     copy "%db_file%" "dist\%app_name%.exe\datex_lite.db" >nul
+    copy "%ini_file%" "dist\%app_name%.exe\datexlite.ini" >nul
 
     call :delete_file "%app_name%_%str_build%.7z"
     :: Архивирование
