@@ -2,8 +2,8 @@
 rem setlocal enabledelayedexpansion
 
 :: Настройка параметров
-set build_number=16
-set app_name=DatexLite=sources
+set build_number=17
+set app_name=DatexLite-Merge_sources
 
 :: Форматирование номера сборки (3 цифры)
 set str_build=00%build_number%
@@ -30,7 +30,6 @@ if exist "%app_name%_%str_build%.7z" (
     -x!"*.cmd" ^
     -x!"*.ini" ^
     -x!"logs" ^
-    -x!"*.db" ^
     -x!".gitignore"
 
 echo Архив успешно создан: %app_name%_%str_build%.7z
