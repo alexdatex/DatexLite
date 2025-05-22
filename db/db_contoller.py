@@ -1,25 +1,30 @@
-import db
-from db.models import EquipmentSchema
-from db.models.mark import Mark
-from db.models.mark_image import MarkImage
 from db.services import ComponentService, EquipmentSchemaService, MarkService, MarkImageService
-
+from .database import _models
 
 class DBController:
     def __init__(self, db):
         self.db = db
 
-    def get_component(self, component_id: int):
-        return ComponentService.get_component(self.db, component_id)
+    def add_equipment(self, data: dict):
+        return ComponentService.add_equipment(self.db, data)
+
+    def get_component(self, equipment_id: int):
+        return ComponentService.get_component(self.db, equipment_id)
+
+    def get_components(self, filters=None):
+        return ComponentService.get_components(self.db, filters)
 
     def delete_equipment(self, equipment_id: int):
         equipment = self.get_component(equipment_id)
         equipment.is_deleted = True
         self.db.commit()
 
-    def add_schema(self, schema: EquipmentSchema):
+    def add_schema(self, data: dict):
+        model = _models['EquipmentSchema']
+        schema = model(**data)
         self.db.add(schema)
         self.db.commit()
+        return schema
 
     def delete_schema(self, schema_id: id):
         schema = self.get_schema(schema_id)
@@ -32,9 +37,12 @@ class DBController:
     def get_schema(self, schema_id: int):
         return EquipmentSchemaService.get_schema(self.db, schema_id)
 
-    def add_mark(self, mark: Mark):
+    def add_mark(self, data: dict):
+        model = _models['Mark']
+        mark = model(**data)
         self.db.add(mark)
         self.db.commit()
+        return mark
 
     def get_mark(self, mark_id: int):
         return MarkService.get_mark(self.db, mark_id)
@@ -57,9 +65,12 @@ class DBController:
     def get_marks(self, schema_id: int):
         return MarkService.get_marks(self.db, schema_id)
 
-    def add_mark_image(self, mark_image: MarkImage):
+    def add_mark_image(self, data: dict):
+        model = _models['MarkImage']
+        mark_image = model(**data)
         self.db.add(mark_image)
         self.db.commit()
+        return mark_image
 
     def delete_mark_image(self, mark_image_id: int):
         mark_image = self.get_mark_image(mark_image_id)

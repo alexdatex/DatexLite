@@ -1,12 +1,15 @@
 @echo off
 rem setlocal enabledelayedexpansion
+:: Чтение номера версии из version.py
+for /f "tokens=1,2 delims==" %%i in ('type version.py ^| find "VERSION"') do (
+    set version=%%j
+)
+:: Удаление кавычек и пробелов из версии
+set version=%version:"=%
+set version=%version: =%
+set app_name=DatexLite-sources
 
-:: Настройка параметров
-set build_number=17
-set app_name=DatexLite-Merge_sources
-
-:: Форматирование номера сборки (3 цифры)
-set str_build=00%build_number%
+set str_build=00%version%
 set str_build=%str_build:~-3%
 
 :: Проверка наличия 7-Zip
@@ -30,6 +33,7 @@ if exist "%app_name%_%str_build%.7z" (
     -x!"*.cmd" ^
     -x!"*.ini" ^
     -x!"logs" ^
+    -x!"*.db" ^
     -x!".gitignore"
 
 echo Архив успешно создан: %app_name%_%str_build%.7z

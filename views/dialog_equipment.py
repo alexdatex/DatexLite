@@ -1,3 +1,4 @@
+import logging
 from tkinter import Toplevel, Label, Entry, Frame, messagebox, StringVar, Text, END, Scrollbar
 from tkinter import ttk
 
@@ -6,16 +7,21 @@ from db import Equipment
 
 
 class EquipmentDialog(Toplevel):
-    def __init__(self, parent, root, controller, equipment_id=None):
+    def __init__(self, parent, root, db_controller, equipment_id=None):
         super().__init__(parent)
         self.root = root
-        self.controller = controller
+        self.db_controller = db_controller
         self.equipment_id = equipment_id
         self.setup_ui()
-        self.iconphoto(False, self.root.photo)
+        self.iconphoto(False, self.root.icon_photo)
+
 
         if equipment_id:
+            logging.info(f"Открытие формы редактирования оборудования ID {equipment_id}")
             self.fill_form()
+        else:
+            logging.info(f"Открытие формы для создания оборудования")
+
 
     def center_window(self, main_frame):
         main_frame.update_idletasks()
@@ -38,7 +44,7 @@ class EquipmentDialog(Toplevel):
         fields = [
             ("Корпус по ГП:", "korpus"),
             ("Технологический номер:", "code"),
-            ("Наименовние оборудования:", "name"),
+            ("Наименование оборудования:", "name"),
             ("Назначение:", "purpose"),
             ("Производитель:", "manufacturer"),
             ("Тип:", "type"),
@@ -86,7 +92,7 @@ class EquipmentDialog(Toplevel):
         ttk.Button(button_frame, text="Отмена", command=self.destroy).pack(side="left", padx=5)
 
     def fill_form(self):
-        equipment = self.controller.get_component(self.equipment_id)
+        equipment = self.db_controller.get_component(self.equipment_id)
         self.update_entries_from_equipmentupdate_entries_from_equipment(equipment)
 
     def update_entries_from_equipmentupdate_entries_from_equipment(self, equipment):

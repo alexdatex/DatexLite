@@ -1,7 +1,11 @@
+import sys
+from datetime import datetime
+import logging
 import os
 import os.path
 import tkinter as tk
 from configparser import ConfigParser
+from pathlib import Path
 from tkinter import ttk, messagebox, DISABLED
 
 from PIL import ImageTk
@@ -9,9 +13,10 @@ from PIL import ImageTk
 from constants.constants import INI_FILE
 from constants.icons import image
 from constants.status_states import StatusStates
-from db import ComponentService, Equipment, DBController, SessionLocal, init_db
+from db import DBController, Database
 from tabs import ComponentInfoTab, SchemaInfoTab
 from views.dialog_equipment import EquipmentDialog
+from version import VERSION
 
 
 class DatexLite:
@@ -20,21 +25,26 @@ class DatexLite:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self._setup_auth_window()
-        self._init_db_connection()
         self._init_users()
         self._setup_ui()
+
+        if os.getenv("APP_DEBUG", "false").lower() == "true":
+            self.current_user = {'login': 'Admin', 'id': 0}
+            self.root.destroy()
+            self._run_main_app()
+
 
     def _setup_auth_window(self) -> None:
         """Настройка окна авторизации."""
         self.root.title("Авторизация")
         self.root.geometry("300x200")
         self.root.resizable(False, False)
-        photo = ImageTk.PhotoImage(image)
-        self.root.iconphoto(False, photo)
 
     def _init_db_connection(self) -> None:
         """Инициализация подключения к базе данных."""
-        self.db = SessionLocal()
+        # self.database = Database(echo=True)
+        self.database = Database()
+        self.db = self.database.get_session()
         self.db_controller = DBController(self.db)
 
     def _init_users(self) -> None:
@@ -128,16 +138,23 @@ class DatexLite:
 
     def _run_main_app(self) -> None:
         """Запуск основного окна приложения."""
+        logging.info(f"DATEX Lite (Пользователь: {self.current_user['login']}) ver. {VERSION:03d}")
+        logging.info(f"Пользователь: {self.current_user['login']} (ID: {self.current_user['id']}) ver. {VERSION:03d}")
         self.main_root = tk.Tk()
 
-        self.main_root.title(f"DATEX Lite (Пользователь: {self.current_user['login']})")
+        self.main_root.title(f"DATEX Lite (Пользователь: {self.current_user['login']}) ver. {VERSION:03d}")
 
+        self._init_db_connection()
         self._init_window_settings()
         self.user_id = self.current_user['id']
         self._create_main_interface()
 
-        self.photo = ImageTk.PhotoImage(image)
-        self.main_root.iconphoto(False, self.photo)
+        icon_photo = ImageTk.PhotoImage(image)
+
+        # Сохраняем ссылку, чтобы изображение не удалилось
+        self.icon_photo = icon_photo
+
+        self.main_root.iconphoto(False, self.icon_photo)
         self._load_and_setup_ui()
 
         self.main_root.mainloop()
@@ -250,15 +267,12 @@ class DatexLite:
         self.equipments_list.heading(col, text=original_text + arrow)
 
     def _configure_equipment_tree(self) -> None:
-        """Настройка Treeview для отображения оборудования."""
         self.equipments_list = ttk.Treeview(
             self.tree_frame,
             yscrollcommand=self.tree_scroll.set,
             selectmode="browse",
             columns=("id",
                      "group_name",
-                     #                     "korpus",
-                     #                    "position",
                      "code", "name",
                      "type",
                      "purpose",
@@ -274,8 +288,6 @@ class DatexLite:
         columns = {
             "id": {"text": "ID", "width": 0, "stretch": tk.NO, "minwidth": 0},
             "group_name": {"text": "Группа", "width": 50, "stretch": tk.YES, "minwidth": 50},
-            #            "korpus": {"text": "Корпус по ГП", "width": 50, "stretch": tk.YES, "minwidth": 50},
-            #            "position": {"text": "Позиция", "width": 50, "stretch": tk.YES, "minwidth": 50},
             "code": {"text": "Номер", "width": 50, "stretch": tk.YES, "minwidth": 50},
             "name": {"text": "Название", "width": 200, "stretch": tk.YES, "minwidth": 50},
             "type": {"text": "Тип", "width": 50, "stretch": tk.YES, "minwidth": 50},
@@ -427,26 +439,13 @@ class DatexLite:
             self.equipments_list.delete(item)
 
         if not self.fields_visible:
-            components = ComponentService.get_components(self.db)
+            components = self.db_controller.get_components()
         else:
-            components = ComponentService.get_components(self.db, self.text_entries)
+            components = self.db_controller.get_components(self.text_entries)
 
         if components:
-            for component in components:
-                self.equipments_list.insert(
-                    "",
-                    tk.END,
-                    values=(component.id,
-                            component.group_name,
-                            #                            component.korpus,
-                            #                            component.position,
-                            component.code,
-                            component.name,
-                            component.type,
-                            component.purpose,
-                            component.manufacturer
-                            )
-                )
+            for equipment in components:
+                self.insert_to_equipments_list(equipment)
 
         if self.equipments_list.get_children():
             first_item = self.equipments_list.get_children()[0]
@@ -514,6 +513,7 @@ class DatexLite:
 
     def update_equipment(self, equipment_id: int, data: dict) -> None:
         """Обновление данных оборудования."""
+        logging.info(f"Обновление данных оборудования ID {equipment_id}")
         equipment = self.db_controller.get_component(equipment_id)
         if equipment:
             for key, value in data.items():
@@ -553,6 +553,7 @@ class DatexLite:
 
     def update_component_info(self, component_id: int) -> None:
         """Обновление информации о компоненте."""
+        logging.info(f"Чтение данных по компоненту ID: {component_id}")
         self.current_component_id = component_id
         self.delete_btn.config(state=tk.NORMAL)
         self.component_info_tab.update(component_id)
@@ -567,26 +568,14 @@ class DatexLite:
 
     def add_equipment(self, data: dict) -> None:
         """Добавление нового оборудования."""
-        equipment = Equipment(**data)
 
-        equipment.user_id = self.user_id
-        self.db.add(equipment)
-        self.db.commit()
-        self.equipments_list.insert(
-            "",
-            tk.END,
-            values=(equipment.id, equipment.code,
-                    equipment.group_name,
-                    #                    equipment.korpus,
-                    #                    equipment.position,
-                    equipment.name,
-                    equipment.type,
-                    equipment.purpose,
-                    equipment.manufacturer)
-        )
+        dict['user_id'] = self.user_id
+        equipment = self.db_controller.add_equipment(dict)
+        self.insert_to_equipments_list(equipment)
 
     def on_closing(self) -> None:
         """Обработчик закрытия приложения."""
+        self.database.close()
         self.save_settings()
         self.main_root.destroy()
 
@@ -597,9 +586,48 @@ class DatexLite:
         self.window_x = self.default_x
         self.window_y = self.default_y
 
+    def insert_to_equipments_list(self, equipment):
+        self.equipments_list.insert("", tk.END,
+                                    values=(equipment.id, equipment.code,
+                                            equipment.group_name,
+                                            equipment.name,
+                                            equipment.type,
+                                            equipment.purpose,
+                                            equipment.manufacturer)
+                                    )
+
+
+def _setup_logging():
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = log_dir / f"DatexLite_{timestamp}.log"
+
+    # Проверяем переменную окружения
+    debug_mode = os.getenv("APP_DEBUG", "false").lower() == "true"
+
+    logging.getLogger().handlers = []
+
+    # Создаем FileHandler для записи в новый файл
+    file_handler = logging.FileHandler(log_file, mode='w', encoding='utf-8')
+
+    # Создаем Formatter для определения формата записи
+    file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(file_formatter)
+
+    # Добавляем FileHandler к logger
+    logging.getLogger().addHandler(file_handler)
+
+    if debug_mode:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_formatter = logging.Formatter('%(asctime)s - %(message)s')
+        console_handler.setFormatter(console_formatter)
+        logging.getLogger().addHandler(console_handler)
+
+    logging.getLogger().setLevel(logging.INFO)
 
 if __name__ == "__main__":
-    init_db()
+    _setup_logging()
     root = tk.Tk()
     app = DatexLite(root)
     root.mainloop()

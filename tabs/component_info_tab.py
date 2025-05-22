@@ -3,6 +3,7 @@ from tkinter import ttk, DISABLED
 
 from constants.status_states import StatusStates
 
+import logging
 
 class ComponentInfoTab:
     def __init__(self, parent, db_service, root):
@@ -19,7 +20,7 @@ class ComponentInfoTab:
         fields = [
             ("Корпус по ГП:", "korpus"),
             ("Технологический номер:", "code"),
-            ("Наименовние оборудования:", "name"),
+            ("Наименование оборудования:", "name"),
             ("Назначение:", "purpose"),
             ("Производитель:", "manufacturer"),
             ("Тип:", "type"),

@@ -1,64 +1,29 @@
+import time
+import logging
 import os
 import shutil
-# from email.mime.text import MIMEText
-# from email.mime.multipart import MIMEMultipart
 import tempfile
 import zipfile
 from datetime import datetime, timedelta
+from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, Index, Table, MetaData, inspect
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 from constants.constants import DATABASE_NAME, PATH_FOR_BACKUP
 
-# SMTP_PASS = "dnJFEDGc2pfVuH9kVvwa"
-# SMTP_SERVER = "smtp.mail.ru"
-# SMTP_USER = "ekaputkin@mail.ru"
-# SMTP_PORT = 465
+_registry = {}
+_models = {}
+
+
+def register_model(cls):
+    """Декоратор для автоматической регистрации моделей"""
+    _registry[cls.__name__] = cls
+    return cls
+
+
 SQLALCHEMY_DATABASE_URL = f"sqlite:///./{DATABASE_NAME}"
-
-
-# def _send_email( subject, body):
-#     """Отправляет лог по почте (если настроено в config.ini)."""
-#     # if not self.config.has_section("EMAIL"):
-#     #     self._log_message("Ошибка: Нет секции [EMAIL] в config.ini")
-#     #     return False
-#
-#     recipient = "ayukhovich@mail.ru"
-#
-#     try:
-#         subject = "Создание копии БД"
-#         msg = MIMEMultipart()
-#         msg['From'] = SMTP_USER
-#         msg['To'] = recipient
-#         msg['Subject'] = subject
-#
-#         # Прикрепляем лог-файл
-# #        with open(self.log_file, "r", encoding="utf-8") as f:
-# #            log_content = f.read()
-#         msg.attach(MIMEText(body + "\n\nЛог:\n" + "log_content", "plain"))
-#
-#         # Отправка через SMTP
-#         print("111")
-#         with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
-#             print("222")
-#             server.login( SMTP_USER, SMTP_PASS)
-#             print("333")
-#             server.send_message(msg)
-#             print("444")
-#
-#         #self._log_message(f"Письмо отправлено на {recipient}")
-#         print(f"Письмо отправлено на {recipient}")
-#         return True
-#     except Exception as e:
-#         #self._log_message(f"Ошибка отправки письма: {e}")
-#         print(f"Ошибка отправки письма: {e}")
-#         return False
-
-def _send_email(subject, body):
-    print(f"{body}")
-    # pass
 
 
 def backup_db_if_exists(db_path):
@@ -108,11 +73,110 @@ def backup_db_if_exists(db_path):
 
 # backup_db_if_exists(DATABASE_NAME)
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-engine.echo = False
+class Database:
+    def __init__(self, echo: bool = False, database_url: str = SQLALCHEMY_DATABASE_URL):
+        logging.info("Инициализация Базы данных")
+        self.engine = create_engine(
+            database_url,
+            connect_args={"check_same_thread": False}
+        )
+        self.engine.echo = echo
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        self.SessionLocal = sessionmaker(
+            autocommit=False,
+            autoflush=False,
+            bind=self.engine
+        )
 
-Base = declarative_base()
+        self.Base = declarative_base()
+        self.setup_models()
+
+        self.init_db()
+
+    def init_db(self):
+        self.Base.metadata.create_all(bind=self.engine)
+        self._ensure_indexes()
+
+    def setup_models(self):
+        logging.info("Инициализация моделей")
+        for name, model_cls in _registry.items():
+            # Создаем класс модели с привязкой к Base
+            logging.info(f"Инициализация модели: {name}")
+            model = type(name, (self.Base, model_cls), {})
+            _models[name] = model
+
+    def get_session(self):
+        """Возвращает новый сеанс базы данных"""
+        return self.SessionLocal()
+
+    def drop_all(self):
+        """Удаляет все таблицы из базы данных"""
+        self.Base.metadata.drop_all(bind=self.engine)
+
+    def _ensure_indexes(self):
+        inspector = inspect(self.engine)
+
+        # Конфигурация индексов для создания
+        INDEX_CONFIGS = [
+            {'name': 'mark_id_is_deleted', 'table': 'mark_image', 'columns': ['mark_id', 'is_deleted']},
+            {'name': 'id_mark_id_is_deleted', 'table': 'mark_image', 'columns': ['mark_id', 'is_deleted', 'id']},
+            {'name': 'schema_id_is_deleted', 'table': 'mark', 'columns': ['schema_id', 'is_deleted']},
+            {'name': 'id_schema_id_is_deleted', 'table': 'mark', 'columns': ['schema_id', 'is_deleted', 'id']},
+            {'name': 'equipment_id_is_deleted', 'table': 'equipment_schema', 'columns': ['equipment_id', 'is_deleted']},
+            {'name': 'id_equipment_id_is_deleted', 'table': 'equipment_schema',
+             'columns': ['equipment_id', 'is_deleted', 'id']},
+            {'name': 'equipment_is_deleted', 'table': 'equipment', 'columns': ['is_deleted', 'id']}
+        ]
+
+        logging.info(f"Начинаем создание индексов в БД: {Path(self.engine.url.database).absolute()}")
+
+        # Получаем список всех таблиц в БД
+        available_tables = set(inspector.get_table_names())
+
+        with self.engine.begin() as conn:  # Автоматический commit/rollback
+            for config in INDEX_CONFIGS:
+                table_name = config['table']
+                index_name = config['name']
+
+                # Проверяем существование таблицы
+                if table_name not in available_tables:
+                    logging.warning(f"Таблица {table_name} не существует, пропускаем индекс {index_name}")
+                    continue
+
+                # Проверяем существование индекса
+                existing_indexes = {idx['name'] for idx in inspector.get_indexes(table_name)}
+                if index_name in existing_indexes:
+                    logging.warning(f"Индекс  {index_name} уже существует")
+                    continue
+
+                # Создаем индекс
+                columns = ', '.join(config['columns'])
+                try:
+                    # Безопасное создание индекса через SQLAlchemy Core
+                    logging.info(f"Создаём индекс {index_name}  в таблице {table_name}")
+
+                    start = time.perf_counter()
+                    metadata = MetaData()
+                    table = Table(table_name, metadata, autoload_with=self.engine)
+                    index = Index(
+                        index_name,
+                        *[getattr(table.c, col) for col in config['columns']],
+                    )
+                    index.create(bind=conn)
+
+                    end = time.perf_counter()
+                    total_seconds = end - start
+
+                    logging.info(
+                        f"Успешно создан индекс {index_name} на {columns} в таблице {table_name} ( Время работы: {total_seconds} сек )")
+                except Exception as e:
+                    logging.error(f"Ошибка при создании индекса {index_name}: {str(e)}", exc_info=True)
+
+        logging.info(f"Завершено создание индексов в БД: {Path(self.engine.url.database).absolute()}")
+
+    def close(self):
+        logging.info("Закрытие Базы данных")
+        if self.engine:
+            self.engine.dispose()  # Закрывает все соединения в пуле
+            self.engine = None
+            self.SessionLocal = None

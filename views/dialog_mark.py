@@ -1,14 +1,15 @@
 import io
+import logging
 import os
 import tkinter as tk
+from pathlib import Path
 from tkinter import Toplevel, Label, Entry, Frame, NORMAL
 from tkinter import messagebox, DISABLED, filedialog
 from tkinter import ttk
 
 from PIL import Image, ImageTk
 
-from db.models.mark import Mark
-from db.models.mark_image import MarkImage
+from constants import resize_image_to_width
 from views.multiline_text_dialog import MultilineInputDialog
 
 
@@ -27,8 +28,12 @@ class MarkDialog(Toplevel):
 
         if (point_mark == None and mark_id != None):
             mark = self.controller.get_mark(mark_id)
+            logging.info(
+                f"Открытие диалога показа деталей метки ID: {mark_id} (Координаты x: {mark.x:4d}, {mark.y:4d} )")
             self.point_mark = (mark.x, mark.y)
         else:
+            logging.info(
+                f"Открытие диалога добавления деталей НОВОЙ метки (Координаты x: {point_mark[0]:4d}, {point_mark[1]:4d} )")
             self.point_mark = point_mark
 
         if mark_id:
@@ -50,7 +55,7 @@ class MarkDialog(Toplevel):
         self.resizable(False, False)
 
         self.resizable(False, False)
-        self.iconphoto(False, self.main_root.photo)
+        self.iconphoto(False, self.main_root.icon_photo)
         self.grab_set()
 
         form_frame = Frame(self, padx=10, pady=10)
@@ -107,24 +112,23 @@ class MarkDialog(Toplevel):
             self.parent2.update_mark_information()
         else:
             x, y = self.point_mark
-            mark = Mark(
-                name=self.entries["name"].get(),
-                description=self.entries["description"].get(),
-                schema_id=self.schema_id,
-                x=x,
-                y=y,
-                spare_parts=self.spare_parts_var.get(),
-                user_id=self.parent2.user_id
-            )
-            self.controller.add_mark(mark)
+            mark_data = {
+                'name': self.entries["name"].get(),
+                'description': self.entries["description"].get(),
+                'schema_id': self.schema_id,
+                'x': x,
+                'y': y,
+                'spare_parts': self.spare_parts_var.get(),
+                'user_id': self.parent2.user_id
+            }
+            mark = self.controller.add_mark(mark_data)
+            self.mark_id = mark.id
             self.parent2.add_mark(mark.id)
 
 
         for key, item in self.tmpMarks.items():
             if self.mark_id:
-                item.mark_id = self.mark_id
-            else:
-                item.mark_id = mark.id
+                item['mark_id'] = self.mark_id
             self.controller.add_mark_image(item)
 
         for mark_image_id in self.list_id_mark_images_for_delete:
@@ -180,6 +184,7 @@ class MarkDialog(Toplevel):
         Label(button_frame, text="Комментарий").grid(row=0, column=0, sticky="e", pady=5)
         self.image_comment_text = tk.Text(button_frame, height=6, width=60, wrap=tk.WORD)
         self.image_comment_text.grid(row=0, column=5, columnspan=4, sticky=tk.EW)
+        self.image_comment_text.config(state=DISABLED)
 
     def fill_form(self):
         mark = self.controller.get_mark(self.mark_id)
@@ -200,9 +205,12 @@ class MarkDialog(Toplevel):
             self.marks_list.focus(first_item)
 
     def delete_image(self):
+        self.image_comment_text.config(state=NORMAL)
+        self.image_comment_text.delete(1.0, tk.END)
+        self.image_comment_text.config(state=DISABLED)
         self.delete_mark_image_btn.config(state=DISABLED)
 
-        selected_item = self.marks_list.selection()  # получаем выделенный элемент (возвращает кортеж)
+        selected_item = self.marks_list.selection()
         if selected_item:  # если что-то выделено
             item = self.marks_list.item(selected_item)
             mark_id = item['values'][0]
@@ -228,7 +236,6 @@ class MarkDialog(Toplevel):
             )
         )
         if file_path:
-
             try:
                 with open(file_path, 'rb') as f:
                     file_data = f.read()
@@ -237,7 +244,7 @@ class MarkDialog(Toplevel):
             except Exception as e:
                 messagebox.showerror("Ошибка", f"Ошибка добавление файла: {e}", parent=self)
 
-            dialog = self.askmultilineinput(
+            dialog = self.ask_multi_line_input(
                 title="Введите текст",
                 prompt="Пожалуйста, введите ваш текст (10 строк):",
                 width=60,
@@ -249,17 +256,23 @@ class MarkDialog(Toplevel):
             else:
                 description = ""
 
-            mark_image = MarkImage(
-                name=name,
-                data=file_data,
-                description=description,
-                mark_id=self.mark_id,
-                user_id=self.user_id
-            )
+            if self.mark_id:
+                logging.info(f"Добавление изображения к метке {self.mark_id} файл {str(Path(file_path).absolute())}")
+            else:
+                logging.info(f"Добавление изображения к новой метке файл {str(Path(file_path).absolute())}")
+
+            mark_data = {
+                'name': name,
+                'data': resize_image_to_width(file_data),
+                'description': description,
+                'mark_id': self.mark_id,
+                'user_id': self.user_id
+            }
+
             tmp_id = -self.tmp_image_id - 1
-            self.tmpMarks[tmp_id] = mark_image
+            self.tmpMarks[tmp_id] = mark_data
             self.tmp_image_id += 1
-            self.marks_list.insert("", tk.END, values=(tmp_id, mark_image.name, mark_image.description))
+            self.marks_list.insert("", tk.END, values=(tmp_id, mark_data['name'], mark_data['description']))
 
     def on_mark_image_select(self, event):
         selected_item = self.marks_list.selection()
@@ -272,15 +285,19 @@ class MarkDialog(Toplevel):
         self.selected_mark_image_id = mark_id
         self.delete_mark_image_btn.config(state=NORMAL)
         if mark_id < 0:
-            tmpMark = self.tmpMarks[mark_id]
+            tmp_mark = self.tmpMarks[mark_id]
+            self.image_comment_text.config(state=NORMAL)
             self.image_comment_text.delete(1.0, tk.END)
-            self.image_comment_text.insert(tk.END, tmpMark.description)
+            self.image_comment_text.insert(tk.END, tmp_mark['description'])
+            self.image_comment_text.config(state=DISABLED)
 
-            data = tmpMark.data
+            data = tmp_mark['data']
         else:
             item = self.controller.get_mark_image(mark_id)
+            self.image_comment_text.config(state=NORMAL)
             self.image_comment_text.delete(1.0, tk.END)
             self.image_comment_text.insert(tk.END, item.description)
+            self.image_comment_text.config(state=DISABLED)
 
             data = item.data
 
@@ -292,7 +309,6 @@ class MarkDialog(Toplevel):
         try:
             image = Image.open(io.BytesIO(image_data))
 
-            # Calculate aspect ratio
             canvas_width = self.image_canvas.winfo_width()
             canvas_height = self.image_canvas.winfo_height()
 
@@ -304,21 +320,20 @@ class MarkDialog(Toplevel):
             image = image.resize((new_width, new_height), Image.LANCZOS)
             photo = ImageTk.PhotoImage(image)
 
-            # Center the image
             x = (canvas_width - new_width) // 2
             y = (canvas_height - new_height) // 2
 
             self.image_canvas.image = photo  # Keep a reference
             self.image_canvas.create_image(x, y, image=photo, anchor=tk.NW)
         except Exception as e:
-            print(f"Error displaying image: {e}")
+            logging.info(f"Error displaying image: {e}")
 
     def clear_image_display(self):
         self.image_canvas.delete("all")
         if hasattr(self.image_canvas, 'image'):
             del self.image_canvas.image
 
-    def askmultilineinput(self, title="Ввод текста", prompt="", width=40, height=10):
+    def ask_multi_line_input(self, title="Ввод текста", prompt="", width=40, height=10):
         """Функция для вызова многострочного диалога ввода"""
 
         dialog = MultilineInputDialog(self, title, prompt, width, height)

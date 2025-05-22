@@ -1,14 +1,15 @@
-from .database import engine, Base, SessionLocal
+from .database import Database, register_model, _models
+from .models import Equipment, EquipmentSchema, Mark, MarkImage
 from .models import Equipment
 from .services import ComponentService
 from .db_contoller import DBController
 
 __all__ = [
-    'engine', 'Base','SessionLocal',
-    'Equipment',
+    'Database', "_models",
     'ComponentService',
-    'DBController'
+    'DBController',
+    'Equipment',
+    'EquipmentSchema',
+    'Mark',
+    'MarkImage'
 ]
-
-def init_db():
-    Base.metadata.create_all(bind=engine)

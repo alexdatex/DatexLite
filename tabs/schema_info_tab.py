@@ -1,11 +1,13 @@
 import io
+import logging
 import os
 import tkinter as tk
+from pathlib import Path
 from tkinter import ttk, filedialog, DISABLED, messagebox, simpledialog, NORMAL
 
 from PIL import Image, ImageTk
 
-from db.models import EquipmentSchema
+from constants import resize_image_to_width
 from views.dialog_marks_scheme import SchemeDialog
 
 
@@ -73,6 +75,7 @@ class SchemaInfoTab:
         self.photo_tree.column("description", width=450, stretch=tk.YES, minwidth=300)
 
         self.photo_tree.bind("<<TreeviewSelect>>", self.on_schema_select)
+        self.photo_tree.bind('<Double-1>', self.open_edit_marks_dialog)
 
         button_frame = tk.Frame(self.top_panel, padx=10, pady=5)
         button_frame.pack(fill="both", expand=True)
@@ -112,14 +115,17 @@ class SchemaInfoTab:
                     else:
                         image_data = file_data
 
-                    schema = EquipmentSchema(name=name,
-                                             data_original=file_data,
-                                             data_image=image_data,
-                                             description=description,
-                                             equipment_id=self.current_component_id, user_id=self.root.user_id,
-                                             is_deleted=False)
+                    logging.info(f"Добавление схемиы к оборудованию {str(Path(file_path).absolute())}")
 
-                    self.db_service.add_schema(schema)
+                    schema_data = {'name': name,
+                                   'data_original': file_data,
+                                   'data_image': resize_image_to_width(image_data),
+                                   'description': description,
+                                   'equipment_id': self.current_component_id,
+                                   'user_id': self.root.user_id,
+                                   'is_deleted': False}
+
+                    self.db_service.add_schema(schema_data)
                     self.update_list_schemas()
 
             except Exception as e:
@@ -139,7 +145,7 @@ class SchemaInfoTab:
             self.clear_image_display()
             self.update_list_schemas()
 
-    def open_edit_marks_dialog(self):
+    def open_edit_marks_dialog(self, event=None):
         SchemeDialog(self.tk_root, self, self.db_service, self.root, self.root.user_id, self.current_schema_id)
 
     def create_bottom_panel(self):
@@ -171,7 +177,8 @@ class SchemaInfoTab:
                 self.photo_tree.insert("", tk.END,
                                        values=(
                                            schema.id,
-                                           schema.name, schema.description))
+                                           schema.name,
+                                           schema.description))
             first_item = self.photo_tree.get_children()[0]
             self.photo_tree.selection_set(first_item)
             self.photo_tree.focus(first_item)
@@ -220,7 +227,7 @@ class SchemaInfoTab:
             self.image_canvas.image = photo  # Keep a reference
             self.image_canvas.create_image(x, y, image=photo, anchor=tk.NW)
         except Exception as e:
-            print(f"Error displaying image: {e}")
+            logging.info(f"Ошибка отображения картинки: {e}")
 
     def update_schema_info(self, schema_id):
         self.current_schema_id = schema_id
