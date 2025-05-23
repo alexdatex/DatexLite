@@ -1,10 +1,10 @@
-from sqlalchemy import Column, Integer, String, Boolean
-from sqlalchemy.dialects.mssql import TINYINT
+from sqlalchemy import Column, Integer, String, Boolean, SmallInteger
 
-from ..database import Base
+from db import register_model
 
 
-class Equipment(Base):
+@register_model
+class Equipment:
     __tablename__ = "equipment"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -20,7 +20,7 @@ class Equipment(Base):
     group_name = Column(String(100, collation="NOCASE"), nullable=True)
     user_id = Column(Integer, nullable=False, index=True)
     is_deleted = Column(Boolean, nullable=False, default=False, index=True)
-    is_audit_completed = Column(TINYINT, nullable=False, default=False, index=True)
+    is_audit_completed = Column(SmallInteger, default=0, nullable=False, index=True)
     korpus_lower = Column(String(50, collation="NOCASE"), nullable=True)
     position_lower = Column(String(50, collation="NOCASE"), nullable=True)
     code_lower = Column(String(50, collation="NOCASE"), nullable=True)
@@ -31,3 +31,6 @@ class Equipment(Base):
     serial_number_lower = Column(String(50, collation="NOCASE"), nullable=True)
     production_date_lower = Column(String(50, collation="NOCASE"), nullable=True)
     group_name_lower = Column(String(100, collation="NOCASE"), nullable=True)
+
+    def __repr__(self):
+        return f"<Equipment(id={self.id}"

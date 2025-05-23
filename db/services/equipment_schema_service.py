@@ -1,14 +1,16 @@
 from sqlalchemy.orm import Session
 
-from ..models.equipment_schema import EquipmentSchema
+from ..database import _models
 
 
 class EquipmentSchemaService:
     @staticmethod
     def get_schemas(db: Session, equipment_id: int):
-        return db.query(EquipmentSchema).filter(EquipmentSchema.equipment_id == equipment_id,
-                                                EquipmentSchema.is_deleted == False).all()
+        model = _models['EquipmentSchema']
+        return db.query(model).filter(model.equipment_id == equipment_id,
+                                      model.is_deleted == False).all()
 
     @staticmethod
     def get_schema(db: Session, schema_id: int):
-        return db.query(EquipmentSchema).filter(EquipmentSchema.id == schema_id).first()
+        model = _models['EquipmentSchema']
+        return db.query(model).filter(model.id == schema_id).first()

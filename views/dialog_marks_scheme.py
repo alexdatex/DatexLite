@@ -1,25 +1,25 @@
 import io
+import logging
+import os
 import tkinter as tk
 from tkinter import Toplevel, Frame, messagebox
-from tkinter import ttk
+from tkinter import ttk, filedialog, simpledialog
 from tkinter.constants import DISABLED, NORMAL
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from PIL import ImageTk
 
 from views.dialog_mark import MarkDialog
+import re
 
 
 class SchemeDialog(Toplevel):
     def __init__(self, parent, root, db_service, main_root, user_id, schema_id):
         super().__init__(parent)
-        self.parent = parent
-        self.root = root
         self.main_root = main_root
         self.db_service = db_service
         self.schema_id = schema_id
         self.user_id = user_id
-        self.setup_ui()
         self.annotations = []
         self.current_mark_id = -1
         self.selected_annotation = None
@@ -28,6 +28,14 @@ class SchemeDialog(Toplevel):
         self.temp_bbox = {}
         self.ann_color = {}
         self.canvas_ann = {}
+        self.scale_factor = 1.0
+        self.scale_options = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5]
+        self.last_canvas_size = (0, 0)
+        self.schema = None
+        self.original_image = None
+        self.setup_ui()
+
+        logging.info(f"Открытие диалога показа меток для схемы с ID: {schema_id}")
 
         if schema_id:
             parent.after(100, self.load_data)
@@ -53,8 +61,7 @@ class SchemeDialog(Toplevel):
 
         self.geometry(f'+{x}+{y}')
 
-
-        self.iconphoto(False, self.main_root.photo)
+        self.iconphoto(False, self.main_root.icon_photo)
 
         self.grab_set()
 
@@ -67,8 +74,8 @@ class SchemeDialog(Toplevel):
         self.left_panel = ttk.Frame(self.paned_window, width=200)
         self.paned_window.add(self.left_panel, minsize=200)
 
-        self.right_panel = ttk.Frame(self.paned_window, width=1000)
-        self.paned_window.add(self.right_panel, minsize=1000)
+        self.right_panel = ttk.Frame(self.paned_window, width=600)
+        self.paned_window.add(self.right_panel, minsize=600)
 
         self.create_left_panel()
         self.create_right_panel()
@@ -93,8 +100,6 @@ class SchemeDialog(Toplevel):
         self.marks_list.column("description", width=100, stretch=tk.YES, minwidth=100)
 
         self.marks_list.bind('<Double-1>', self.on_mark_click)
-
-        # Привязка события выбора
         self.marks_list.bind("<<TreeviewSelect>>", self.on_mark_select)
 
     def create_right_panel(self):
@@ -104,6 +109,23 @@ class SchemeDialog(Toplevel):
         self.add_btn.pack(side="left", padx=5)
         self.delete_btn = ttk.Button(button_frame, text="Удалить метку", command=self.open_delete_mark, state=DISABLED)
         self.delete_btn.pack(side="left", padx=5)
+
+        self.scale_var = tk.StringVar()
+
+        ttk.Label(button_frame, text="Масштаб: ").pack(side=tk.LEFT, padx=5)
+        self.scale_combobox = ttk.Combobox(
+            button_frame,
+            textvariable=self.scale_var,
+            values=[f"{int(opt * 100)}%" for opt in self.scale_options],
+            state="readonly"
+        )
+
+        self.scale_combobox.pack(side=tk.LEFT, padx=5)
+        self.scale_combobox.bind("<<ComboboxSelected>>", self.on_scale_change)
+        self.scale_combobox.current(3)  # 100% по умолчанию
+
+        self.save_image_btn = ttk.Button(button_frame, text="Сохранить", command=self.save_image)
+        self.save_image_btn.pack(side="left", padx=5)
 
         self.canvas_container = ttk.Frame(self.right_panel)
         self.canvas_container.pack(fill=tk.BOTH, expand=True)
@@ -131,13 +153,17 @@ class SchemeDialog(Toplevel):
         self.canvas_container.grid_rowconfigure(0, weight=1)
         self.canvas_container.grid_columnconfigure(0, weight=1)
 
+        # Привязка событий изменения размера
+        self.canvas.bind("<Configure>", self.on_canvas_resize)
+        self.last_canvas_size = (0, 0)
+
     def on_canvas_click(self, event):
         if (self.canvas["cursor"] == 'cross'):
             img_x = self.canvas.canvasx(event.x)
             img_y = self.canvas.canvasy(event.y)
-            # print(f"img_x : {img_x}, img_y : {img_y}")
+            logging.info(f"img_x : {img_x}, img_y : {img_y}")
             self.canvas.config(cursor='')
-            point_mark = (int(img_x), int(img_y))
+            point_mark = (int(img_x / self.scale_factor), int(img_y / self.scale_factor))
             MarkDialog(self, self, self.root, self.db_service, self.main_root, self.user_id, self.schema_id, None,
                        point_mark)
         else:
@@ -156,6 +182,50 @@ class SchemeDialog(Toplevel):
                 MarkDialog(self, self, self.root, self.db_service, self.main_root, self.user_id, self.schema_id,
                            ann['id'])
                 break
+
+    def auto_select_scale(self, image_data):
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        img_width = image_data.width
+        img_height = image_data.height
+
+        if canvas_width <= 1 or canvas_height <= 1:  # Если canvas еще не инициализирован
+            return
+
+        # Вычисляем оптимальный масштаб
+        width_ratio = canvas_width / img_width
+        height_ratio = canvas_height / img_height
+        optimal_scale = min(width_ratio, height_ratio, 1.5)  # Не больше 100%
+
+        # Находим ближайший вариант из доступных
+        closest_scale = min(self.scale_options, key=lambda x: abs(x - optimal_scale))
+        self.scale_factor = closest_scale
+
+        # Устанавливаем значение в комбобоксе
+        scale_index = self.scale_options.index(closest_scale)
+        self.scale_combobox.current(scale_index)
+
+    def on_scale_change(self, event):
+        selected = self.scale_var.get()
+        scale_str = selected.rstrip("%")
+        self.scale_factor = float(scale_str) / 100
+        self.load_image()
+
+    def on_canvas_resize(self, event):
+        # Проверяем, действительно ли изменился размер
+        if (self.last_canvas_size == (event.width, event.height)) or not self.original_image:
+            return
+
+        self.last_canvas_size = (event.width, event.height)
+
+        # Автомасштабирование только если изображение не помещается
+        bbox = self.canvas.bbox(tk.ALL)
+
+        # if bbox and (bbox[2] > event.width or bbox[3] > event.height):
+        if bbox:
+            self.auto_select_scale(self.original_image)
+            self.show_image(self.original_image)
+            self.add_marks_to_preview()
 
     def on_mark_click(self, event):
         selected_item = self.marks_list.selection()
@@ -225,31 +295,27 @@ class SchemeDialog(Toplevel):
                                values=(mark.id, mark.name, mark.description))
 
     def load_image(self):
-        schema = self.db_service.get_schema(self.schema_id)
-        self.show_image(schema.data_image)
+        if self.schema == None:
+            self.schema = self.db_service.get_schema(self.schema_id)
+            self.original_image = Image.open(io.BytesIO(self.schema.data_image))
+            self.auto_select_scale(self.original_image)
+
+        self.show_image(self.original_image)
         self.add_marks_to_preview()
 
     def show_image(self, image_data):
         self.clear_image_display()
 
         try:
-            image = Image.open(io.BytesIO(image_data))
+            img_width, img_height = image_data.size
 
-            # # Calculate aspect ratio
-            # canvas_width = self.canvas.winfo_width()
-            # canvas_height = self.canvas.winfo_height()
-            #
-            # img_width, img_height = image.size
-            # ratio = min(canvas_width / img_width, canvas_height / img_height)
-            # new_width = int(img_width * ratio)
-            # new_height = int(img_height * ratio)
-            #
-            # image = image.resize((new_width, new_height), Image.LANCZOS)
+            new_width = int(img_width * self.scale_factor)
+            new_height = int(img_height * self.scale_factor)
+
+            image = image_data.resize((new_width, new_height), Image.LANCZOS)
+
             photo = ImageTk.PhotoImage(image)
 
-            # Center the image
-            #            x = (canvas_width - new_width) // 2
-            #            y = (canvas_height - new_height) // 2
             x = 0
             y = 0
 
@@ -269,8 +335,8 @@ class SchemeDialog(Toplevel):
             self.draw_annotation(mark)
 
     def draw_annotation(self, mark):
-        x = mark.x
-        y = mark.y
+        x = int(mark.x * self.scale_factor)
+        y = int(mark.y * self.scale_factor)
         text = mark.name
 
         annotation = {
@@ -332,3 +398,43 @@ class SchemeDialog(Toplevel):
         item_id = f"mark_{mark_id}"
         self.marks_list.selection_add(item_id)
         self.marks_list.focus(item_id)
+
+    def save_image(self):
+        if not self.original_image:
+            return
+
+        schema_name = "schema"  # Значение по умолчанию
+        if self.schema and hasattr(self.schema, 'name'):
+            schema_name = os.path.splitext(self.schema.name)[0]
+
+        safe_name = re.sub(r'[\\/*?:"<>|]', "_", schema_name)
+
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            initialfile=f"{safe_name}_с_метками",  # Задаем начальное имя файла
+            title="Сохранить схему с метками как",
+            filetypes=[("PNG", "*.png"), ("JPEG", "*.jpg"), ("BMP", "*.bmp")]
+        )
+
+        img_width, img_height = self.original_image.size
+
+        font = ImageFont.truetype("arial.ttf", img_height / 80)
+
+        if file_path:
+            try:
+                # Создаем копию оригинального изображения с метками
+                image_to_save = self.original_image.copy()
+                marks = self.db_service.get_marks(self.schema_id)
+                if marks:
+                    draw = ImageDraw.Draw(image_to_save)
+                    for mark in marks:
+                        if mark.spare_parts:
+                            ann_color = 'blue'
+                        else:
+                            ann_color = 'red'
+                        draw.text((mark.x, mark.y), mark.name, fill=ann_color, font=font)
+
+                image_to_save.save(file_path)
+                messagebox.showinfo("Сохранено", f"Изображение сохранено как:\n{file_path}", parent=self)
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Не удалось сохранить изображение:\n{e}", parent=self)

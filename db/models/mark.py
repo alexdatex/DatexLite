@@ -1,9 +1,10 @@
 from sqlalchemy import Column, Integer, String, Text, Boolean
 
-from ..database import Base
+from db import register_model
 
 
-class Mark(Base):
+@register_model
+class Mark:
     __tablename__ = "mark"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
@@ -14,3 +15,6 @@ class Mark(Base):
     y = Column(Integer, index=True)
     user_id = Column(Integer, nullable=False, index=True)
     is_deleted = Column(Boolean, nullable=False, index=True, default=0)
+
+    def __repr__(self):
+        return f"<Mark(id={self.id}"
