@@ -1,5 +1,5 @@
 ﻿import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 
 from db import SessionLocal, DBController
 from tabs import ComponentInfoTab, SchemaInfoTab
@@ -9,8 +9,6 @@ class MainView:
     def __init__(self, root, user):
         self.root = root
         self.user = user
-        self.db = SessionLocal()
-        self.db_controller = DBController(self.db)
         self.current_component_id = -1
 
         self._setup_window()
