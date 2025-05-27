@@ -17,7 +17,6 @@ class MarkDialog(Toplevel):
     def __init__(self, parent, parent2, root, controller, main_root, user_id, schema_id, mark_id=None, point_mark=None):
         super().__init__(parent)
         self.parent2 = parent2
-        self.root = root
         self.controller = controller
         self.main_root = main_root
         self.mark_id = mark_id

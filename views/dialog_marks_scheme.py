@@ -164,7 +164,7 @@ class SchemeDialog(Toplevel):
             logging.info(f"img_x : {img_x}, img_y : {img_y}")
             self.canvas.config(cursor='')
             point_mark = (int(img_x / self.scale_factor), int(img_y / self.scale_factor))
-            MarkDialog(self, self, self.root, self.db_service, self.main_root, self.user_id, self.schema_id, None,
+            MarkDialog(self, self, None, self.db_service, self.main_root, self.user_id, self.schema_id, None,
                        point_mark)
         else:
             x, y = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
@@ -179,7 +179,7 @@ class SchemeDialog(Toplevel):
         for i, ann in enumerate(self.annotations):
             if (ann['x'] <= x <= ann['x'] + ann['width'] and
                     ann['y'] <= y <= ann['y'] + ann['height']):
-                MarkDialog(self, self, self.root, self.db_service, self.main_root, self.user_id, self.schema_id,
+                MarkDialog(self, self, None, self.db_service, self.main_root, self.user_id, self.schema_id,
                            ann['id'])
                 break
 
@@ -232,7 +232,7 @@ class SchemeDialog(Toplevel):
         if selected_item:
             item = self.marks_list.item(selected_item)
             mark_id = item['values'][0]
-            MarkDialog(self, self, self.root, self.db_service, self.main_root, self.user_id, self.schema_id, mark_id)
+            MarkDialog(self, self, None, self.db_service, self.main_root, self.user_id, self.schema_id, mark_id)
 
     def open_add_mark(self):
         self.canvas.config(cursor='cross')
